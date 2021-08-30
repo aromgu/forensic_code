@@ -7,7 +7,6 @@ from .cnnwav import CNN
 def get_model(model_name) :
     if model_name == 'Unet' :
         model = Unet()
-
     elif model_name == 'CNN' :
         model = CNN()
     else :

@@ -2,6 +2,7 @@
 # 2. 도낫도낫 와일드 에어팟 프로 실리콘 케이스
 # 3. 누아트 페블 에어팟프로 실리콘케이스 + 메탈 철가루 방지스티커 랜덤 발송
 
+import os
 import random
 import argparse
 
@@ -34,26 +35,27 @@ class FocalLoss(nn.Module):
             return F_loss
 
 def get_init():
+    root_dataset_path = '/media/jhnam19960514/68334fe0-2b83-45d6-98e3-76904bf08127/home/namjuhyeon/Desktop/LAB/common material/Dataset Collection/CASIA/casia2groundtruth'
     parser = argparse.ArgumentParser()
 
     # ETC
-    parser.add_argument('--Au_image_path', default='datasets/casia2groundtruth/CASIA2.0_revised/Au')
-    parser.add_argument('--Tp_image_path', default='datasets/casia2groundtruth/CASIA2.0_revised/Tp')
-    parser.add_argument('--Tp_label_path', default='datasets/casia2groundtruth/CASIA2.0_Groundtruth')
+    parser.add_argument('--Au_image_path', default=os.path.join(root_dataset_path, 'CASIA2.0_revised/Au'))
+    parser.add_argument('--Tp_image_path', default=os.path.join(root_dataset_path, 'CASIA2.0_revised/Tp'))
+    parser.add_argument('--Tp_label_path', default=os.path.join(root_dataset_path, 'CASIA2.0_Groundtruth'))
     parser.add_argument('--device', default=torch.device('cuda' if torch.cuda.is_available() else torch.device('cpu')))
     parser.add_argument('--split_ratio', type=float, default=0.2)
     parser.add_argument('--seed', type=int, default=4321)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
 
     # Train Parser Args
-    parser.add_argument('--model_name', default='CNN', help='model architecture name')
+    parser.add_argument('--model_name', default='Unet', help='model architecture name')
     parser.add_argument('--num_labels', type=int, default=2)
     parser.add_argument('--patch_option', default='n', help='illumination option')
-    parser.add_argument('--fad_option', default='y', help='FAD option')
-    parser.add_argument('--img_size', default=298, type=int, help='image width and height size')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--fad_option', default='n', help='FAD option')
+    parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
+    parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--epochs', type=int, default=200)
-    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    parser.add_argument('--learning_rate', type=float, default=0.1)
 
     parser.add_argument('--net_loss_weight', type=float, default=1.)
     parser.add_argument('--patch_loss_weight', type=float, default=0.)
@@ -71,3 +73,22 @@ def fix_seed(seed, device) :
         torch.backends.cudnn.benchmark = False
 
     print(f"Your experiment is fixed to {seed}")
+
+def get_current_lr(optimizer) :
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+def get_lr(step, total_step, lr_max, lr_min) :
+    """Compute learning rate according to cosine annealing schedule."""
+    return lr_min + (lr_max - lr_min) * 0.5 * ( 1 + np.cos(step/total_step * np.pi))
+
+def get_scheduler(args, train_loader, optimizer) :
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer,
+        lr_lambda=lambda step: get_lr(  # pylint: disable=g-long-lambda
+            step,
+            args.epochs * len(train_loader),
+            1,  # lr_lambda computes multiplicative factor
+            1e-6 / args.learning_rate))
+
+    return scheduler

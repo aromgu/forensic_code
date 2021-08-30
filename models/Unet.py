@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Unet(nn.Module) :
-    def __init__(self, in_dim=12, n_class=1, num_filters=32):
+    def __init__(self, in_dim=3, n_class=1, num_filters=32):
         super(Unet, self).__init__()
 
         self.in_dim      = in_dim

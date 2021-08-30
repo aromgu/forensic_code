@@ -6,25 +6,27 @@ from torch import optim
 from utils import *
 from models import *
 from Trainer import fit
-from utils.data_loader import load_path
 
 def main(args):
     fix_seed(args.seed, device=args.device)
 
-    train_loader, test_loader, infer_loader = load_path(Au_image_path=args.Au_image_path, Tp_image_path=args.Tp_image_path,
-                                          Tp_label_path=args.Tp_label_path, split_ratio=args.split_ratio, batch_size=args.batch_size,
-                                                        img_size = args.img_size)
+    train_loader, test_loader = load_dataloader(Tp_image_path=args.Tp_image_path,
+                                                Tp_label_path=args.Tp_label_path,
+                                                split_ratio=args.split_ratio,
+                                                batch_size=args.batch_size,
+                                                img_size=args.img_size)
 
     model = get_model(args.model_name)
-    if torch.cuda.device_count()>1:
+    if torch.cuda.device_count() > 1:
         print('Multi GPU activate : ',torch.cuda.device_count())
         model = nn.DataParallel(model)
     model.to(args.device)
 
-    # criterion = nn.BCEWithLogitsLoss().to(args.device)
-    criterion = FocalLoss().to(args.device)
+    criterion = nn.BCEWithLogitsLoss().to(args.device)
+    # criterion = FocalLoss().to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0)
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0)
+    scheduler = get_scheduler(args, train_loader, optimizer)
     model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
                          patch_module = get_patch_module,
                          net_loss_weight = args.net_loss_weight,
