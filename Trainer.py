@@ -108,7 +108,7 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
             avg_loss = running_loss / cnt  # 무야호 춧
 
             if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(test_loader):
-                print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
+                print("Epoch {}  | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
                     epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss))
 
                 pred = torch.sigmoid(prediction)
@@ -139,7 +139,7 @@ def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loade
         history['train_loss'].append(train_loss)
         history['test_loss'].append(test_loss)
 
-        configuration.cur_cost = train_loss
+        configuration.cur_cost = test_loss
         if configuration.pre_cost > configuration.cur_cost :
             print("pre cost", configuration.pre_cost)
             print("cur cost", configuration.cur_cost)
