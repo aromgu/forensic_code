@@ -29,16 +29,21 @@ def main(args):
     scheduler = get_scheduler(args, train_loader, optimizer)
     model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
                          patch_module = get_patch_module,
+                         MGP = extract,
                          net_loss_weight = args.net_loss_weight,
-                         patch_loss_weight = args.patch_loss_weight,
+                         low_loss_weight = args.low_loss_weight,
                          get_patchnet=get_patch_conv(),
+                         get_fad=Fnet(args.img_size),
+                         low_freq = lowfreq_mask,
+                         iou = iou_numpy,
+
                          patch_option=args.patch_option,
-                         get_fad = Fnet(args.img_size),
                          fad_option = args.fad_option,
+                         mgp_option = args.mgp_option,
                          model_name = args.model_name,
                          parent_dir = args.parent_dir)
     save_last_model(args.parent_dir, args.epochs, model, args.model_name, args.fad_option, args.patch_option) # iteration을 다 돌아서 나온 마지막 모델만 save 하는 것
-    save_history(history, args.parent_dir, args.fad_option, args.patch_option, args.model_name, args.epochs)
+    save_history(history, args.parent_dir, args.fad_option, args.patch_option, args.model_name)
     # history save
 
 if __name__ == '__main__':

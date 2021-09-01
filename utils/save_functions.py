@@ -24,7 +24,7 @@ def save_last_model(parent_dir, epoch, model, model_name, fad_option, patch_opti
     print(f'saved last model : epoch{epoch}')
 
 def save_history(history, parent_dir, fad_option, patch_option, model_name):
-    plot_loss(history)
+    plot_loss(str(history))
     f = open(os.path.join(parent_dir, model_name, f'fad_{fad_option}', f'patch_{patch_option}.txt'), 'w')
     f.write(history)
     f.close()

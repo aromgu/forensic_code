@@ -136,7 +136,7 @@ def create_circular_mask(h, w, center=None, radius=None):
     mask = dist_from_center <= radius
     return mask
 
-def circular (h, w, num, image):
+def circular (h, w, num):
     c_mask = create_circular_mask(h, w)
     # masked_img = image.copy()
     # masked_img[~c_mask] = 0

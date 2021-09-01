@@ -1,5 +1,6 @@
 from time import time
 
+import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
 
@@ -35,32 +36,47 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         X = X.to(device)
         y = y.to(device)
 
-        if kwargs['fad_option'] == 'y':
-            kwargs['get_fad'].to('cuda')
-            fad, lfs = kwargs['get_fad'](X)
-            # fad = fad.resize(fad.size(0), fad.size(1), 256, 256)
-            fad = resize(fad)
+        # if kwargs['fad_option'] == 'y':
+        #     kwargs['get_fad'].to('cuda')
+        #     fad, lfs = kwargs['get_fad'](X)
+        #     # fad = fad.resize(fad.size(0), fad.size(1), 256, 256)
+        #     fad = resize(fad)
+
+        if kwargs['mgp_option'] == 'y':
+            # 해야할 일~
+            # 1. angle, length, preserve_range, k_clusters => args에 포함시키기
+            # 2. loss가 왜 저럴까~
+            # 3. 서버는 왜 안돌아갈까~
+            # 4. 저주파 영역은 어떻게 사용할 수 있을까~
+
+            mgps = kwargs['MGP'](X, device, 256, 30, 30, 0 , 3).unsqueeze(dim=2)
+            k,b,c,w,h = mgps.shape
+
+            pred_list = torch.empty(k,b,c,w,h)
+            for k in range(k):
+                prediction = model(mgps[k])
+                pred_list[k] = prediction
+                # plt.imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='gray')
+                # plt.show()
+
+            mean = torch.mean(pred_list, dim=0)
+
 
         optimizer.zero_grad()
-        prediction = model(X)
 
-        if kwargs['patch_option'] == 'y':
-            with torch.no_grad():
-                gen_patch, proba = kwargs['patch_module'](X, y)
-            kwargs['get_patchnet'].to('cuda')
-            patch_pred = kwargs['get_patchnet'](gen_patch.float().to('cuda'))
-            patch_loss = criterion(patch_pred, y)
-        net_loss = criterion(prediction, resize(y)) # # BCEWithLogitsLoss는 sigmoid가 추가된 손실함수이기 때문에 따로 sigmoid를 추가적으로 해줄 필요 없음
+        # LOSS
+        net_loss = criterion(mean.to(device), y) # # BCEWithLogitsLoss는 sigmoid가 추가된 손실함수이기 때문에 따로 sigmoid를 추가적으로 해줄 필요 없음
+        lowfreq = kwargs['low_freq'](15, X)
+        low_loss = criterion(lowfreq.to(device), y)
 
-        # pixel_loss = criterion(proba.float(),classify_y.squeeze().float())
-        # total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['patch_loss_weight'] * patch_loss  # + 0.2  * pixel_loss
+        total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['low_loss_weight'] * low_loss  # + 0.2  * pixel_loss
 
-        running_loss += net_loss.item()
+        running_loss += total_loss.item()
         cnt += X.size(0)
 
         avg_loss = running_loss / cnt
 
-        net_loss.backward()
+        total_loss.backward()
         optimizer.step()
         scheduler.step()
 
@@ -91,16 +107,34 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
             prediction = model(X)
             # pred = torch.sigmoid(prediction)
 
-            if kwargs['patch_option'] == 'y':
-                gen_patch, proba = kwargs['patch_module'](X, y)
-                kwargs['get_patchnet'].to('cuda')
-                patch_pred = kwargs['get_patchnet'](torch.FloatTensor(gen_patch.float()).to('cuda'))
-                patch_loss = criterion(patch_pred, y)
+            # if kwargs['patch_option'] == 'y':
+            #     gen_patch, proba = kwargs['patch_module'](X, y)
+            #     kwargs['get_patchnet'].to('cuda')
+            #     patch_pred = kwargs['get_patchnet'](torch.FloatTensor(gen_patch.float()).to('cuda'))
+            #     patch_loss = criterion(patch_pred, y)
 
-            net_loss = criterion(prediction, resize(y))
+            if kwargs['mgp_option'] == 'y':
+                # kwargs['MGP'].to('cuda')
 
-            # pixel_loss = criterion(proba.float(),classify_y.squeeze().float())
-            total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['patch_loss_weight'] * patch_loss  # + 0.2  * pixel_loss
+                mgps = kwargs['MGP'](X, device, 256, 30, 30, 0 , 3).unsqueeze(dim=2)
+                k, b, c, w, h = mgps.shape
+
+                pred_list = torch.empty(k, b, c, w, h)
+                for k in range(k):
+                    prediction = model(mgps[k])
+                    pred_list[k] = prediction
+            mean = torch.mean(pred_list, dim=0)
+
+            # LOSS
+            net_loss = criterion(mean.to(device), y)
+            lowfreq = kwargs['low_freq'](15, X)
+            low_loss = criterion(lowfreq.to(device), y)
+
+            total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['low_loss_weight'] * low_loss
+
+            high_iou = kwargs['iou'](mean, y)
+            low_iou = kwargs['iou'](lowfreq, y)
+            total_iou = (high_iou+low_iou) / 2
 
             running_loss += total_loss.item()
             cnt += X.size(0)
@@ -108,10 +142,10 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
             avg_loss = running_loss / cnt  # 무야호 춧
 
             if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(test_loader):
-                print("Epoch {}  | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
-                    epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss))
+                print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {} | IoU : {}".format(
+                    epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss, total_iou))
 
-                pred = torch.sigmoid(prediction)
+                pred = torch.sigmoid(mean)
                 pred[pred >= 0.5] = 1
                 pred[pred < 0.5] = 0
                 plot_test_results(X, resize(y), pred, epoch, batch_idx + 1)
