@@ -7,8 +7,8 @@ from datasets.Dataset import CASIADataset
 from sklearn.model_selection import train_test_split
 
 def load_dataloader(Tp_image_path, Tp_label_path, split_ratio, batch_size, img_size) :
-    Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)])#[:10]
-    Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)])#[:10]
+    Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)])[:10]
+    Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)])[:10]
 
     train_x, test_x, train_y, test_y = train_test_split(Tp_images, Tp_labels, test_size=split_ratio, shuffle=True)
 

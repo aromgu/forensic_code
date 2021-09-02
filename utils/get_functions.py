@@ -52,6 +52,11 @@ def get_init():
     # Train Parser Args
     parser.add_argument('--model_name', default='CNN', help='model architecture name')
     parser.add_argument('--num_labels', type=int, default=2)
+    parser.add_argument('--angle', type=int, default=30, help='parameter for MGP module')
+    parser.add_argument('--length', type=int, default=10, help='parameter for MGP module')
+    parser.add_argument('--preserve_range', type=int, default=0, help='parameter for MGP module')
+    parser.add_argument('--num_enc', type=int, default=5, help='parameter for MGP module')
+
 
     parser.add_argument('--patch_option', default='n', help='illumination option')
     parser.add_argument('--fad_option', default='n', help='FAD option')
@@ -59,7 +64,7 @@ def get_init():
 
     parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
     parser.add_argument('--batch_size', type=int, default=2)
-    parser.add_argument('--epochs', type=int, default=200)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.01)
 
     parser.add_argument('--net_loss_weight', type=float, default=0.5)

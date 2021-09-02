@@ -28,7 +28,6 @@ def main(args):
     # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0)
     scheduler = get_scheduler(args, train_loader, optimizer)
     model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
-                         patch_module = get_patch_module,
                          MGP = extract,
                          net_loss_weight = args.net_loss_weight,
                          low_loss_weight = args.low_loss_weight,
@@ -36,14 +35,14 @@ def main(args):
                          get_fad=Fnet(args.img_size),
                          low_freq = lowfreq_mask,
                          iou = iou_numpy,
+                         canny = canny,
 
-                         patch_option=args.patch_option,
                          fad_option = args.fad_option,
                          mgp_option = args.mgp_option,
                          model_name = args.model_name,
                          parent_dir = args.parent_dir)
-    save_last_model(args.parent_dir, args.epochs, model, args.model_name, args.fad_option, args.patch_option) # iteration을 다 돌아서 나온 마지막 모델만 save 하는 것
-    save_history(history, args.parent_dir, args.fad_option, args.patch_option, args.model_name)
+    save_last_model(args.parent_dir, args.epochs, model, args.model_name, args.fad_option) # iteration을 다 돌아서 나온 마지막 모델만 save 하는 것
+    save_history(history, args.parent_dir, args.fad_option, args.model_name)
     # history save
 
 if __name__ == '__main__':

@@ -88,16 +88,19 @@ def extract(x, device, image_size, angle, length, preserve_range, num_enc):
     clustered_idx, X, labels = fourier_intensity_extraction(x_spectrum, idxx, idxy, num_enc, image_size)
     patterns = torch.empty((num_enc, x_fft.size(0), x_fft.size(2), x_fft.size(3))).to(device, dtype=torch.float32)
 
+    mask_list = []
     for i, (idxx, idxy) in enumerate(clustered_idx):
         mask = torch.zeros(x_fft.size(2), x_fft.size(3)).to(device)
         mask[idxx, idxy] = 1
         temp = torch.empty_like(x_fft)
+        mask_list.append(mask)
         for j in range(len(x_fft)):
             temp[j] = x_fft[j] * mask
             temp[j] = torch.abs(fft.ifft2(fft.ifftshift(temp[j])))
+
         patterns[i] = temp.squeeze()
 
-    return patterns
+    return patterns, x_spectrum, mask_list
 
 def create_circular_mask(h, w, center=None, radius=None):
 

@@ -2,7 +2,6 @@ import torch.nn.functional as f
 import torch.nn as nn
 import torch
 # from SRM_filters import get_filters
-from utils.wav_pool import DWT, IWT
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -16,7 +15,6 @@ class CNN(nn.Module):
         in_ch = 1
         pool = [in_ch, in_ch*4, in_ch*16, in_ch*64, in_ch*256, in_ch*1024]
 
-        self.pool = DWT()
         # self.unpool = IWT()
         self.maxunpool = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 

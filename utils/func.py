@@ -149,7 +149,7 @@ def circular (h, w, num):
     c_mask = a-c_mask
     return c_mask
 
-def in_circular (h, w, num, image):
+def in_circular (h, w, num):
     c_mask = create_circular_mask(h, w)
     # masked_img = image.copy()
     # masked_img[~c_mask] = 0
