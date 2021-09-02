@@ -3,13 +3,16 @@ from time import time
 from tqdm import tqdm
 
 import configuration
+from utils.plot_functions import plot_test_results, plot_mgp
+
 from utils import *
+args = get_init()
 
 resize = transforms.Compose(
     [transforms.Resize((256, 256))]
 )
 
-def train_epoch(args, device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs):
+def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs):
     """
     :param device:
     :param model:
@@ -23,48 +26,20 @@ def train_epoch(args, device, model, criterion, optimizer, scheduler, train_load
     model.train()
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
-    patch_loss = 0.0
 
     for batch_idx, (X, y) in enumerate(train_loader):
         X = X.to(device)
         y = y.to(device)
 
-        # if kwargs['fad_option'] == 'y':
-        #     kwargs['get_fad'].to('cuda')
-        #     fad, lfs = kwargs['get_fad'](X)
-        #     # fad = fad.resize(fad.size(0), fad.size(1), 256, 256)
-        #     fad = resize(fad)
-        edge = canny(y, device)
-        print('edge', edge)
-
-        if kwargs['mgp_option'] == 'y':
-            # 해야할 일~
-            # 1. angle, length, preserve_range, k_clusters => args에 포함시키기
-            # 2. loss가 왜 저럴까~
-            # 3. 서버는 왜 안돌아갈까~
-            # 4. 저주파 영역은 어떻게 사용할 수 있을까~
-
-            mgps, _, mask_list= kwargs['MGP'](X, device, args.img_size, args.angle, args.length, args.preserve_range , args.num_enc)#.unsqueeze(dim=2)
-            mgps = mgps.unsqueeze(dim=2)
-            k,b,c,w,h = mgps.shape # [3,2,1,256,256]
-
-            pred_list = torch.empty(k,b,c,w,h)
-            for k in range(k):
-                prediction = model(mgps[k])
-                pred_list[k] = prediction
-                # plt.imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='gray')
-                # plt.show()
-
-            mean = torch.mean(pred_list, dim=0)
+        mgp_output, edge_GT, lowfreq, spectrum, mask_list, k = model(X, y, device)
 
         optimizer.zero_grad()
 
         # LOSS
-        net_loss = criterion(mean.to(device), y) # # BCEWithLogitsLoss는 sigmoid가 추가된 손실함수이기 때문에 따로 sigmoid를 추가적으로 해줄 필요 없음
-        lowfreq = kwargs['low_freq'](15, X)
+        high_loss = criterion(mgp_output.to(device), edge_GT.to(device))
         low_loss = criterion(lowfreq.to(device), y)
 
-        total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['low_loss_weight'] * low_loss  # + 0.2  * pixel_loss
+        total_loss = kwargs['net_loss_weight'] * high_loss + kwargs['low_loss_weight'] * low_loss
 
         running_loss += total_loss.item()
         cnt += X.size(0)
@@ -83,7 +58,7 @@ def train_epoch(args, device, model, criterion, optimizer, scheduler, train_load
 
     return avg_loss
 
-def test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs) :
+def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs) :
     model.eval()
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
@@ -92,44 +67,19 @@ def test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs) :
         y = y.to(device)
 
         with torch.no_grad():
-            if kwargs['fad_option'] == 'y':
-                kwargs['get_fad'].to('cuda')
-                fad, lfs = kwargs['get_fad'](X)
-                fad = resize(fad)
+            optimizer.zero_grad()
 
-            # optimizer.zero_grad() # optimizer 여기 안넣어도됨
+            mgp_output, edge_GT, lowfreq, spectrum, mask_list, k = model(X, y, device)
 
-            prediction = model(X) # 여기서도 모델을 쓰고 아래에서도 모델 쓰는데??
-
-            # pred = torch.sigmoid(prediction)
-
-            # if kwargs['patch_option'] == 'y':
-            #     gen_patch, proba = kwargs['patch_module'](X, y)
-            #     kwargs['get_patchnet'].to('cuda')
-            #     patch_pred = kwargs['get_patchnet'](torch.FloatTensor(gen_patch.float()).to('cuda'))
-            #     patch_loss = criterion(patch_pred, y)
-
-            if kwargs['mgp_option'] == 'y':
-                # kwargs['MGP'].to('cuda')
-
-                mgps, spectrum, mask_list = kwargs['MGP'](X, device, args.img_size, args.angle, args.length, args.preserve_range, args.num_enc)#.unsqueeze(dim=2)
-                mgps = mgps.unsqueeze(dim=2)
-                k, b, c, w, h = mgps.shape # [3,2,1,256,256]
-
-                pred_list = torch.empty(k, b, c, w, h)
-                for k_ in range(k):
-                    prediction = model(mgps[k_])
-                    pred_list[k_] = prediction
-            mean = torch.mean(pred_list, dim=0)
+            optimizer.zero_grad()
 
             # LOSS
-            net_loss = criterion(mean.to(device), y)
-            lowfreq = kwargs['low_freq'](15, X)
+            high_loss = criterion(mgp_output.to(device), edge_GT.to(device))
             low_loss = criterion(lowfreq.to(device), y)
 
-            total_loss = kwargs['net_loss_weight'] * net_loss + kwargs['low_loss_weight'] * low_loss
+            total_loss = kwargs['net_loss_weight'] * high_loss + kwargs['low_loss_weight'] * low_loss
 
-            high_iou = kwargs['iou'](mean, y)
+            high_iou = kwargs['iou'](mgp_output, edge_GT)
             low_iou = kwargs['iou'](lowfreq, y)
 
             running_loss += total_loss.item()
@@ -141,26 +91,27 @@ def test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs) :
                 print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {} | IoU low : {} | IoU High : {}".format(
                     epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss, low_iou, high_iou))
 
-                pred = torch.sigmoid(mean)
+                pred = torch.sigmoid(mgp_output)
                 pred[pred >= 0.5] = 1
                 pred[pred < 0.5] = 0
                 plot_test_results(X, resize(y), pred, epoch, batch_idx + 1)
-                print('k',k)
                 plot_mgp(X, spectrum, mask_list, k)
 
     return avg_loss
 
-def fit(args, device, model, criterion, optimizer, scheduler, train_loader, test_loader, epochs, **kwargs):
-    history = get_history()
-
+def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loader, epochs, **kwargs):
+    history = dict()
+    history['train_loss'] = list()
+    history['test_loss'] = list()
     for epoch in tqdm(range(1, epochs + 1)) :
         start_time = time()
 
         print("TRAINING")
-        train_loss = train_epoch(args, device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
+        train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
+        # scheduler.step(train_loss) # StepLR 스케쥴러는 여기있는게 맞지만 Cosine annealing scheduler는 매 iter마다 step을 수행
 
         print("EVALUATE")
-        test_loss = test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs)
+        test_loss = test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs)
 
         end_time = time() - start_time
         m, s = divmod(end_time, 60)
@@ -173,7 +124,6 @@ def fit(args, device, model, criterion, optimizer, scheduler, train_loader, test
         if configuration.pre_cost > configuration.cur_cost :
             print("pre cost", configuration.pre_cost)
             print("cur cost", configuration.cur_cost)
-            # print(kwargs['parent_dir'] + f"{kwargs['model_name']}/{kwargs['patch_option']}")
             save_best_model(kwargs['parent_dir'], epoch, model, kwargs['model_name'], optimizer, train_loss, kwargs['fad_option']) # best model을 저장하고
             configuration.pre_cost = configuration.cur_cost
         print(f'epoch={epoch}, train_loss={train_loss}, test_loss={test_loss}| current_lr:{get_current_lr(optimizer)} | took : {int(h)}h {int(m)}m {int(s)}s')
