@@ -6,7 +6,10 @@ import torchvision.transforms as transforms
 from datasets.Dataset import CASIADataset
 from sklearn.model_selection import train_test_split
 
-def load_dataloader(Tp_image_path, Tp_label_path, split_ratio, batch_size, img_size) :
+def load_dataloader(data_path, split_ratio, batch_size, img_size) :
+    Tp_image_path = os.path.join(data_path, 'CASIA2.0_revised/Tp')
+    Tp_label_path = os.path.join(data_path, 'CASIA2.0_Groundtruth')
+
     Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)])[:10]
     Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)])[:10]
 

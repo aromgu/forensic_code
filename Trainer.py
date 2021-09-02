@@ -159,15 +159,12 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
     return avg_loss
 
 def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loader, epochs, **kwargs):
-    history = dict()
-    history['train_loss'] = list()
-    history['test_loss'] = list()
+    history = get_history()
     for epoch in tqdm(range(1, epochs + 1)) :
         start_time = time()
 
         print("TRAINING")
         train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
-        # scheduler.step(train_loss) # StepLR 스케쥴러는 여기있는게 맞지만 Cosine annealing scheduler는 매 iter마다 step을 수행
 
         print("EVALUATE")
         test_loss = test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs)

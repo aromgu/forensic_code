@@ -1,7 +1,13 @@
+# model을 하나로 integration을 시켜야할듯.
+# 모델이 너무 scatter 되있어서 보기 어려움
+# 하나의 모듈 클래스를 만들어서 거기에 다 넣는게 좋을듯
+    # model = MGP + canny edge detection + U-net
+# 필요없는 argument 없애기
+    # fit : get patch? get_fad? fad_option?
+# 사실 상 best 모델은 굳이?... 저장할 필요 없는 거 같은데, 어차피 마지막 에폭 모델만 비교해야됨
+
 import warnings
 warnings.filterwarnings('ignore')
-
-from torch import optim
 
 from utils import *
 from models import *
@@ -9,9 +15,7 @@ from Trainer import fit
 
 def main(args):
     fix_seed(args.seed, device=args.device)
-
-    train_loader, test_loader = load_dataloader(Tp_image_path=args.Tp_image_path,
-                                                Tp_label_path=args.Tp_label_path,
+    train_loader, test_loader = load_dataloader(data_path=args.data_path,
                                                 split_ratio=args.split_ratio,
                                                 batch_size=args.batch_size,
                                                 img_size=args.img_size)
@@ -21,12 +25,13 @@ def main(args):
         print('Multi GPU activate : ',torch.cuda.device_count())
         model = nn.DataParallel(model)
     model.to(args.device)
+    model.apply(weights_init)
+    print("Model weight initialization complete!")
 
-    criterion = nn.BCEWithLogitsLoss().to(args.device)
-    # criterion = FocalLoss().to(args.device)
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0)
+    criterion = get_criterion(args)
+    optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, train_loader, optimizer)
+
     model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
                          MGP = extract,
                          net_loss_weight = args.net_loss_weight,
