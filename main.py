@@ -1,7 +1,7 @@
 # model을 하나로 integration을 시켜야할듯.
 # 모델이 너무 scatter 되있어서 보기 어려움
 # 하나의 모듈 클래스를 만들어서 거기에 다 넣는게 좋을듯
-    # model = MGP + canny edge detection + U-net
+    # model = MGP + canny edge detection + U-net + low frequency filtering
 # 필요없는 argument 없애기
     # fit : get patch? get_fad? fad_option?
 # 사실 상 best 모델은 굳이?... 저장할 필요 없는 거 같은데, 어차피 마지막 에폭 모델만 비교해야됨
@@ -32,7 +32,7 @@ def main(args):
     optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, train_loader, optimizer)
 
-    model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
+    model, history = fit(args, args.device, model, criterion, optimizer, scheduler, train_loader, test_loader, args.epochs,
                          MGP = extract,
                          net_loss_weight = args.net_loss_weight,
                          low_loss_weight = args.low_loss_weight,

@@ -1,25 +1,15 @@
 from time import time
 
-import matplotlib.pyplot as plt
-import torch
-import torchvision.transforms as transforms
-
-import numpy as np
 from tqdm import tqdm
 
 import configuration
-from utils.save_functions import save_best_model
-from utils.get_functions import get_current_lr
-from utils.plot_functions import plot_test_results, plot_mgp
-
 from utils import *
-args = get_init()
 
 resize = transforms.Compose(
     [transforms.Resize((256, 256))]
 )
 
-def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs):
+def train_epoch(args, device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs):
     """
     :param device:
     :param model:
@@ -93,7 +83,7 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
 
     return avg_loss
 
-def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs) :
+def test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs) :
     model.eval()
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
@@ -107,8 +97,10 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
                 fad, lfs = kwargs['get_fad'](X)
                 fad = resize(fad)
 
-            optimizer.zero_grad()
-            prediction = model(X)
+            # optimizer.zero_grad() # optimizer 여기 안넣어도됨
+
+            prediction = model(X) # 여기서도 모델을 쓰고 아래에서도 모델 쓰는데??
+
             # pred = torch.sigmoid(prediction)
 
             # if kwargs['patch_option'] == 'y':
@@ -158,16 +150,17 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
 
     return avg_loss
 
-def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loader, epochs, **kwargs):
+def fit(args, device, model, criterion, optimizer, scheduler, train_loader, test_loader, epochs, **kwargs):
     history = get_history()
+
     for epoch in tqdm(range(1, epochs + 1)) :
         start_time = time()
 
         print("TRAINING")
-        train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
+        train_loss = train_epoch(args, device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
 
         print("EVALUATE")
-        test_loss = test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs)
+        test_loss = test_epoch(args, device, model, criterion, test_loader, epoch, **kwargs)
 
         end_time = time() - start_time
         m, s = divmod(end_time, 60)
