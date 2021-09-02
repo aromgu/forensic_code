@@ -14,14 +14,14 @@ class Ours(nn.Module):
         super(Ours, self).__init__()
 
         # self.Unet = unet
-        self.CNN = CNN
+        self.CNN = CNN()
         self.MGP = mgp
         self.LowFreq = lowfreq
         self.Canny = canny
 
 
     def forward(self, X, y, device):
-        mgps, spectrum, mask_list = self.MGP(X, args.img_size, args.angle, args.length, args.preserve_range , args.num_enc)
+        mgps, spectrum, mask_list = self.MGP(X, device, args.img_size, args.angle, args.length, args.preserve_range, args.num_enc)
         mgps = mgps.unsqueeze(dim=2)
         k, b, c, w, h = mgps.shape  # [num_enc,B,C,256,256]
 
