@@ -27,22 +27,21 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
 
-    for batch_idx, (X, y) in enumerate(train_loader):
-        X = X.to(device)
-        y = y.to(device)
+    for batch_idx, (image, label) in enumerate(train_loader):
+        image, label = image.to(device), label.to(device)
 
-        mgp_output, edge_GT, lowfreq, spectrum, mask_list, k = model(X, y, device)
+        high_freq_output, low_freq_output, edge_GT = model(image, label, device)
 
         optimizer.zero_grad()
 
         # LOSS
-        high_loss = criterion(mgp_output.to(device), edge_GT.to(device))
-        low_loss = criterion(lowfreq.to(device), y)
+        high_loss = criterion(high_freq_output.to(device), edge_GT.to(device))
+        low_loss = criterion(low_freq_output.to(device), label)
 
         total_loss = kwargs['net_loss_weight'] * high_loss + kwargs['low_loss_weight'] * low_loss
 
         running_loss += total_loss.item()
-        cnt += X.size(0)
+        cnt += image.size(0)
 
         avg_loss = running_loss / cnt
 
@@ -99,16 +98,14 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
 
     return avg_loss
 
-def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loader, epochs, **kwargs):
-    history = dict()
-    history['train_loss'] = list()
-    history['test_loss'] = list()
+def fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, epochs, **kwargs):
+    history = get_history()
+
     for epoch in tqdm(range(1, epochs + 1)) :
         start_time = time()
 
         print("TRAINING")
         train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
-        # scheduler.step(train_loss) # StepLR 스케쥴러는 여기있는게 맞지만 Cosine annealing scheduler는 매 iter마다 step을 수행
 
         print("EVALUATE")
         test_loss = test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs)
@@ -120,12 +117,6 @@ def fit(scheduler, device, model, criterion, optimizer, train_loader, test_loade
         history['train_loss'].append(train_loss)
         history['test_loss'].append(test_loss)
 
-        configuration.cur_cost = test_loss
-        if configuration.pre_cost > configuration.cur_cost :
-            print("pre cost", configuration.pre_cost)
-            print("cur cost", configuration.cur_cost)
-            save_best_model(kwargs['parent_dir'], epoch, model, kwargs['model_name'], optimizer, train_loss, kwargs['fad_option']) # best model을 저장하고
-            configuration.pre_cost = configuration.cur_cost
         print(f'epoch={epoch}, train_loss={train_loss}, test_loss={test_loss}| current_lr:{get_current_lr(optimizer)} | took : {int(h)}h {int(m)}m {int(s)}s')
 
     return model, history

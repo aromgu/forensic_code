@@ -2,20 +2,15 @@
 # 2. 도낫도낫 와일드 에어팟 프로 실리콘 케이스
 # 3. 누아트 페블 에어팟프로 실리콘케이스 + 메탈 철가루 방지스티커 랜덤 발송
 
-import os
 import random
 import argparse
+import sys
 
-import numpy
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
-from sklearn.metrics import confusion_matrix
 import numpy as np
-
-# 1 Epoch 당 테스트 이미지 인퍼런스
-# 서브 플롯으로 1 x 5 짜리 5장 인퍼런스 하는 거지~^^*;;""
-# 학습할 때 random crop? transforms.RandomCrop()
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
@@ -37,32 +32,32 @@ class FocalLoss(nn.Module):
             return F_loss
 
 def get_init():
-    root_dataset_path = './datasets/casia2groundtruth'
     parser = argparse.ArgumentParser()
 
     # ETC
-    parser.add_argument('--Au_image_path', default=os.path.join(root_dataset_path, 'CASIA2.0_revised/Au'))
-    parser.add_argument('--Tp_image_path', default=os.path.join(root_dataset_path, 'CASIA2.0_revised/Tp'))
-    parser.add_argument('--Tp_label_path', default=os.path.join(root_dataset_path, 'CASIA2.0_Groundtruth'))
-    parser.add_argument('--device', default=torch.device('cuda' if torch.cuda.is_available() else torch.device('cpu')))
+    parser.add_argument('--data_path', default='/media/jhnam19960514/68334fe0-2b83-45d6-98e3-76904bf08127/home/namjuhyeon/Desktop/LAB/common material/Dataset Collection/CASIA/casia2groundtruth')
     parser.add_argument('--split_ratio', type=float, default=0.2)
-    parser.add_argument('--seed', type=int, default=4321)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
 
     # Train Parser Args
     parser.add_argument('--model_name', default='Ours', help='model architecture name')
     parser.add_argument('--num_labels', type=int, default=2)
+    parser.add_argument('--optimizer', type=str, default='SGD')
+    parser.add_argument('--momentum', type=float, default=0.9)
+    parser.add_argument('--weight_decay', type=float, default=0.0001)
+
+    # Mask Generation Process hyperparameters
     parser.add_argument('--angle', type=int, default=30, help='parameter for MGP module')
     parser.add_argument('--length', type=int, default=10, help='parameter for MGP module')
-    parser.add_argument('--preserve_range', type=int, default=0, help='parameter for MGP module')
-    parser.add_argument('--num_enc', type=int, default=5, help='parameter for MGP module')
+    parser.add_argument('--preserve_range', type=int, default=50, help='parameter for MGP module')
+    parser.add_argument('--num_enc', type=int, default=3, help='parameter for MGP module')
 
 
     parser.add_argument('--fad_option', default='n', help='FAD option')
     parser.add_argument('--mgp_option', default='y', help='MGP option')
 
     parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
-    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.01)
 
@@ -72,16 +67,22 @@ def get_init():
     args = parser.parse_args()
     return args
 
-def fix_seed(seed, device) :
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+def fix_seed(device) :
+    random.seed(4321)
+    np.random.seed(4321)
+    torch.manual_seed(4321)
     if device == 'cuda':
-        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed_all(4321)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    print(f"Your experiment is fixed to {seed}")
+    print(f"Your experiment is fixed to {4321}")
+
+def get_device() :
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"your device is {device}")
+
+    return device
 
 def get_current_lr(optimizer) :
     for param_group in optimizer.param_groups:
@@ -90,6 +91,30 @@ def get_current_lr(optimizer) :
 def get_lr(step, total_step, lr_max, lr_min) :
     """Compute learning rate according to cosine annealing schedule."""
     return lr_min + (lr_max - lr_min) * 0.5 * ( 1 + np.cos(step/total_step * np.pi))
+
+def get_criterion() :
+    criterion = nn.BCEWithLogitsLoss()
+
+    print("Your criterion is : ", criterion)
+
+    return criterion
+
+def get_optimizer(args, model) :
+    if args.optimizer == 'Adam' :
+        optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    elif args.optimizer == 'SGD' :
+        optimizer = optim.SGD(model.parameters(),
+                              lr=args.learning_rate,
+                              momentum=args.momentum,
+                              weight_decay=args.weight_decay,
+                              nesterov=True)
+    else :
+        print("You choose wrong optimizer : [Adam, SGD]")
+        sys.exit()
+
+    print("Your optimizer is : ", optimizer)
+
+    return optimizer
 
 def get_scheduler(args, train_loader, optimizer) :
     scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -102,6 +127,12 @@ def get_scheduler(args, train_loader, optimizer) :
 
     return scheduler
 
+def get_history() :
+    history = dict()
+    history['train_loss'] = list()
+    history['test_loss'] = list()
+
+    return history
 
 # PyTroch version
 

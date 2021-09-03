@@ -10,15 +10,14 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.bias.data)
 
 class CNN(nn.Module):
-    def __init__(self):
+    def __init__(self, input_channel):
         super(CNN, self).__init__()
-        in_ch = 1
-        pool = [in_ch, in_ch*4, in_ch*16, in_ch*64, in_ch*256, in_ch*1024]
+        pool = [input_channel, input_channel*4, input_channel*16, input_channel*64, input_channel*256, input_channel*1024]
 
         # self.unpool = IWT()
         self.maxunpool = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.conv1 = nn.Conv2d(input_channel, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         # self.conv1.weight = nn.Parameter(get_filters())
         # nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2), padding=(0, 0)),
         # self.sequential = nn.Sequential(
@@ -49,7 +48,7 @@ class CNN(nn.Module):
         x = f.leaky_relu(self.conv5(x))
         x = f.leaky_relu(self.conv6(x))
         x = f.leaky_relu(self.conv7(x))
-        x = f.leaky_relu(self.conv8(x))
+        x = self.conv8(x)
 
         return x
 

@@ -8,25 +8,25 @@ from models import *
 from Trainer import fit
 
 def main(args):
-    fix_seed(args.seed, device=args.device)
+    device = get_device()
+    fix_seed(device)
 
-    train_loader, test_loader = load_dataloader(Tp_image_path=args.Tp_image_path,
-                                                Tp_label_path=args.Tp_label_path,
+    train_loader, test_loader = load_dataloader(data_path=args.data_path,
                                                 split_ratio=args.split_ratio,
                                                 batch_size=args.batch_size,
                                                 img_size=args.img_size)
 
-    model = get_model(args.model_name)
+    model = get_model(args.model_name, args, device)
     if torch.cuda.device_count() > 1:
         print('Multi GPU activate : ',torch.cuda.device_count())
         model = nn.DataParallel(model)
-    model.to(args.device)
+    model.to(device)
 
-    criterion = nn.BCEWithLogitsLoss().to(args.device)
-    # criterion = FocalLoss().to(args.device)
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    criterion = get_criterion().to(device)
+    optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, train_loader, optimizer)
-    model, history = fit(scheduler, args.device, model, criterion, optimizer, train_loader, test_loader, args.epochs,
+
+    model, history = fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, args.epochs,
                          net_loss_weight = args.net_loss_weight,
                          low_loss_weight = args.low_loss_weight,
                          iou = iou_numpy,
