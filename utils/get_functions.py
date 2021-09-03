@@ -61,7 +61,7 @@ def get_init():
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.01)
 
-    parser.add_argument('--net_loss_weight', type=float, default=0.5)
+    parser.add_argument('--high_loss_weight', type=float, default=0.5)
     parser.add_argument('--low_loss_weight', type=float, default=0.5)
 
     args = parser.parse_args()

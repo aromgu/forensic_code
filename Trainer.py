@@ -12,7 +12,7 @@ resize = transforms.Compose(
     [transforms.Resize((256, 256))]
 )
 
-def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs):
+def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, max_norm=1.0, **kwargs):
     """
     :param device:
     :param model:
@@ -30,22 +30,24 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
     for batch_idx, (image, label) in enumerate(train_loader):
         image, label = image.to(device), label.to(device)
 
-        high_freq_output, low_freq_output, edge_GT = model(image, label, device)
-
-        optimizer.zero_grad()
+        high_freq_output, low_freq_region, edge_GT = model(image, label, device)
 
         # LOSS
-        high_loss = criterion(high_freq_output.to(device), edge_GT.to(device))
-        low_loss = criterion(low_freq_output.to(device), label)
+        high_edge_loss = criterion(high_freq_output.to(device), edge_GT.to(device))
+        low_region_loss = criterion(low_freq_region.to(device), label)
 
-        total_loss = kwargs['net_loss_weight'] * high_loss + kwargs['low_loss_weight'] * low_loss
+        total_loss = kwargs['high_loss_weight'] * high_edge_loss + \
+                     kwargs['low_loss_weight'] * low_region_loss
+        print(total_loss)
 
         running_loss += total_loss.item()
         cnt += image.size(0)
 
         avg_loss = running_loss / cnt
 
+        optimizer.zero_grad()
         total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
         scheduler.step()
 

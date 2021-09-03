@@ -37,7 +37,7 @@ class Ours(nn.Module):
         low_filtered_image[..., 1, :, :] = U
         low_filtered_image[..., 2, :, :] = V
         low_filtered_image = self._YUV2RGB(low_filtered_image) # convert to YUV -> RGB
-        low_freq_output = self.cnn_low_freq(low_filtered_image)
+        low_freq_region = self.cnn_low_freq(low_filtered_image)
 
         # Get high frequency
         patterns = self.extract_pattern(Y)
@@ -50,7 +50,7 @@ class Ours(nn.Module):
         # EDGE GT
         edge_GT = self.Canny(gt, device)
 
-        return high_freq_output, low_freq_output, edge_GT
+        return high_freq_output, low_freq_region, edge_GT
 
     def low_frequency_filtering(self, image):
         # low frequency mask generation

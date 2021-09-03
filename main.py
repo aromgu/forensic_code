@@ -27,7 +27,7 @@ def main(args):
     scheduler = get_scheduler(args, train_loader, optimizer)
 
     model, history = fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, args.epochs,
-                         net_loss_weight = args.net_loss_weight,
+                         high_loss_weight = args.high_loss_weight,
                          low_loss_weight = args.low_loss_weight,
                          iou = iou_numpy,
 
