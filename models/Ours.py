@@ -8,7 +8,6 @@ import kornia.color as k_color
 from .Unet import Unet as unet
 from .cnnwav import CNN
 from .Canny import canny
-from utils.get_functions import get_init
 
 from .MGP import get_small_region, fourier_intensity_extraction
 

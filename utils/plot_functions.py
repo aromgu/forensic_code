@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def plot_test_results(image, ground_truth, prediction, epoch, batch_idx, save_root_path='example') :
     fig, ax = plt.subplots(1, 2)
-    ax[0].imshow(image[0].squeeze().cpu().detach().numpy())
+    ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
     ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([])
 
     ax[0].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.5)

@@ -1,8 +1,6 @@
 import warnings
 warnings.filterwarnings('ignore')
 
-from torch import optim
-
 from utils import *
 from models import *
 from Trainer import fit
@@ -14,7 +12,8 @@ def main(args):
     train_loader, test_loader = load_dataloader(data_path=args.data_path,
                                                 split_ratio=args.split_ratio,
                                                 batch_size=args.batch_size,
-                                                img_size=args.img_size)
+                                                img_size=args.img_size,
+                                                num_workers=args.num_workers)
 
     model = get_model(args.model_name, args, device)
     if torch.cuda.device_count() > 1:
@@ -22,14 +21,13 @@ def main(args):
         model = nn.DataParallel(model)
     model.to(device)
 
-    criterion = get_criterion().to(device)
+    criterion = get_criterion(args).to(device)
     optimizer = get_optimizer(args, model)
     scheduler = get_scheduler(args, train_loader, optimizer)
 
     model, history = fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, args.epochs,
                          high_loss_weight = args.high_loss_weight,
                          low_loss_weight = args.low_loss_weight,
-                         iou = iou_numpy,
                          model_name = args.model_name,
                          parent_dir = args.parent_dir)
     save_last_model(args.parent_dir, args.epochs, model, args.model_name, args.fad_option)

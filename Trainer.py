@@ -2,10 +2,9 @@ from time import time
 
 from tqdm import tqdm
 
-import configuration
+from utils import *
 from utils.plot_functions import plot_test_results, plot_mgp
 
-from utils import *
 args = get_init()
 
 resize = transforms.Compose(
@@ -58,32 +57,28 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
 
     return avg_loss
 
-def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs) :
+def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
     model.eval()
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
-    for batch_idx, (X, y) in enumerate(test_loader):
-        X = X.to(device)
-        y = y.to(device)
+    for batch_idx, (image, label) in enumerate(test_loader):
+        image, label = image.to(device), label.to(device)
 
         with torch.no_grad():
-            optimizer.zero_grad()
-
-            mgp_output, edge_GT, lowfreq, spectrum, mask_list, k = model(X, y, device)
-
-            optimizer.zero_grad()
+            high_freq_output, low_freq_region, edge_GT = model(image, label, device)
 
             # LOSS
-            high_loss = criterion(mgp_output.to(device), edge_GT.to(device))
-            low_loss = criterion(lowfreq.to(device), y)
+            high_edge_loss = criterion(high_freq_output.to(device), edge_GT.to(device))
+            low_region_loss = criterion(low_freq_region.to(device), label)
 
-            total_loss = kwargs['net_loss_weight'] * high_loss + kwargs['low_loss_weight'] * low_loss
+            total_loss = kwargs['high_loss_weight'] * high_edge_loss + \
+                         kwargs['low_loss_weight'] * low_region_loss
 
-            high_iou = kwargs['iou'](mgp_output, edge_GT)
-            low_iou = kwargs['iou'](lowfreq, y)
+            high_iou = iou_numpy(high_freq_output, edge_GT)
+            low_iou = iou_numpy(low_freq_region, label)
 
             running_loss += total_loss.item()
-            cnt += X.size(0)
+            cnt += image.size(0)
 
             avg_loss = running_loss / cnt  # 무야호 춧
 
@@ -91,11 +86,11 @@ def test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs
                 print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {} | IoU low : {} | IoU High : {}".format(
                     epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss, low_iou, high_iou))
 
-                pred = torch.sigmoid(mgp_output)
+                pred = torch.sigmoid(low_freq_region)
                 pred[pred >= 0.5] = 1
                 pred[pred < 0.5] = 0
-                plot_test_results(X, resize(y), pred, epoch, batch_idx + 1)
-                plot_mgp(X, spectrum, mask_list, k)
+                plot_test_results(image, resize(label), pred, epoch, batch_idx + 1)
+                # plot_mgp(image, spectrum, mask_list, k)
 
     return avg_loss
 
@@ -109,7 +104,7 @@ def fit(device, model, criterion, optimizer, scheduler, train_loader, test_loade
         train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
 
         print("EVALUATE")
-        test_loss = test_epoch(device, model, criterion, optimizer, test_loader, epoch, **kwargs)
+        test_loss = test_epoch(device, model, criterion, test_loader, epoch, **kwargs)
 
         end_time = time() - start_time
         m, s = divmod(end_time, 60)

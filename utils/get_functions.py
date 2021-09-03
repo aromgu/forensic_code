@@ -38,6 +38,7 @@ def get_init():
     parser.add_argument('--data_path', default='/media/jhnam19960514/68334fe0-2b83-45d6-98e3-76904bf08127/home/namjuhyeon/Desktop/LAB/common material/Dataset Collection/CASIA/casia2groundtruth')
     parser.add_argument('--split_ratio', type=float, default=0.2)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
+    parser.add_argument('--num_workers', type=int, default=4)
 
     # Train Parser Args
     parser.add_argument('--model_name', default='Ours', help='model architecture name')
@@ -45,12 +46,13 @@ def get_init():
     parser.add_argument('--optimizer', type=str, default='SGD')
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
+    parser.add_argument('--criterion', type=str, default='FL')
 
     # Mask Generation Process hyperparameters
     parser.add_argument('--angle', type=int, default=30, help='parameter for MGP module')
     parser.add_argument('--length', type=int, default=10, help='parameter for MGP module')
     parser.add_argument('--preserve_range', type=int, default=50, help='parameter for MGP module')
-    parser.add_argument('--num_enc', type=int, default=3, help='parameter for MGP module')
+    parser.add_argument('--num_enc', type=int, default=2, help='parameter for MGP module')
 
 
     parser.add_argument('--fad_option', default='n', help='FAD option')
@@ -92,8 +94,14 @@ def get_lr(step, total_step, lr_max, lr_min) :
     """Compute learning rate according to cosine annealing schedule."""
     return lr_min + (lr_max - lr_min) * 0.5 * ( 1 + np.cos(step/total_step * np.pi))
 
-def get_criterion() :
-    criterion = nn.BCEWithLogitsLoss()
+def get_criterion(args) :
+    if args.criterion == 'BCE' :
+        criterion = nn.BCEWithLogitsLoss()
+    elif args.criterion == 'FL' :
+        criterion = FocalLoss()
+    else :
+        print("You choose wrong optimizer : [BCE, FL]")
+        sys.exit()
 
     print("Your criterion is : ", criterion)
 
@@ -133,42 +141,3 @@ def get_history() :
     history['test_loss'] = list()
 
     return history
-
-# PyTroch version
-
-SMOOTH = 1e-6
-
-def iou_pytorch(outputs: torch.Tensor, labels: torch.Tensor):
-    # You can comment out this line if you are passing tensors of equal shape
-    # But if you are passing output from UNet or something it will most probably
-    # be with the BATCH x 1 x H x W shape
-    outputs = outputs.cpu().detach().numpy().squeeze(1)  # BATCH x 1 x H x W => BATCH x H x W
-
-    intersection = (outputs & labels.cpu().detach().numpy()).float().sum((1, 2))  # Will be zero if Truth=0 or Prediction=0
-    union = (outputs | labels).float().sum((1, 2))  # Will be zzero if both are 0
-
-    iou = (intersection + SMOOTH) / (union + SMOOTH)  # We smooth our devision to avoid 0/0
-
-    thresholded = torch.clamp(20 * (iou - 0.5), 0, 10).ceil() / 10  # This is equal to comparing with thresolds
-
-    return thresholded  # Or thresholded.mean() if you are interested in average across the batch
-
-
-# Numpy version
-# Well, it's the same function, so I'm going to omit the comments
-
-def iou_numpy(outputs, labels):
-    pred = torch.sigmoid(outputs)
-    pred[pred >= 0.5] = 1
-    pred[pred < 0.5] = 0
-    pred = pred.cpu().detach().numpy().squeeze(1).astype(int)
-    labels = labels.cpu().detach().numpy().astype(int)
-
-    intersection = numpy.bitwise_and(pred, labels).sum((1, 2))
-    union = (pred | labels).sum((1, 2))
-
-    iou = (intersection + SMOOTH) / (union + SMOOTH)
-
-    thresholded = np.ceil(np.clip(20 * (iou - 0.5), 0, 10)) / 10
-
-    return thresholded.mean()  # Or thresholded.mean()

@@ -1,20 +1,12 @@
 import torch.nn.functional as f
 import torch.nn as nn
-import torch
-# from SRM_filters import get_filters
-
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        nn.init.xavier_uniform_(m.weight.data)
-        nn.init.xavier_uniform_(m.bias.data)
 
 class CNN(nn.Module):
     def __init__(self, input_channel):
         super(CNN, self).__init__()
         pool = [input_channel, input_channel*4, input_channel*16, input_channel*64, input_channel*256, input_channel*1024]
-
         # self.unpool = IWT()
+
         self.maxunpool = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
         self.conv1 = nn.Conv2d(input_channel, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -22,7 +14,7 @@ class CNN(nn.Module):
         # nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2), padding=(0, 0)),
         # self.sequential = nn.Sequential(
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=(3,3), stride=(1, 1), padding=(1,1))
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         self.conv4 = nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
 
         self.conv5 = nn.Conv2d(256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -51,26 +43,3 @@ class CNN(nn.Module):
         x = self.conv8(x)
 
         return x
-
-        # ll1, hl1, lh1, hh1 = self.pool(x)
-        # x = f.relu(self.conv2(torch.cat((ll1, hl1, lh1, hh1),1)))
-        # ll2, hl2, lh2, hh2 = self.pool(x)
-
-        # x = f.relu(self.conv3(torch.cat((ll2, hl2, lh2, hh2),1)))
-        #ll3, hl3, lh3, hh3 = self.pool(x)
-
-        #x = f.relu(self.conv4(torch.cat((ll3, hl3, lh3, hh3),1)))
-
-# decoder =================
-
-        # unpool = self.maxunpool(x)
-        # x = f.relu(self.unconv4(unpool))
-        # x = self.oneby1(x)
-        #
-        # unpool = self.maxunpool(x)
-        # x = f.relu(self.unconv5(unpool))
-        # x = self.oneby2(x)
-        #
-        # x = f.relu(self.unconv6(x))
-        # x = self.oneby3(x)
-        # x = self.unconv7(x)
