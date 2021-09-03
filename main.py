@@ -30,8 +30,6 @@ def main(args):
                          high_loss_weight = args.high_loss_weight,
                          low_loss_weight = args.low_loss_weight,
                          iou = iou_numpy,
-
-                         mgp_option = args.mgp_option,
                          model_name = args.model_name,
                          parent_dir = args.parent_dir)
     save_last_model(args.parent_dir, args.epochs, model, args.model_name, args.fad_option)

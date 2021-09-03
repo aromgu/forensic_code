@@ -38,7 +38,6 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
 
         total_loss = kwargs['high_loss_weight'] * high_edge_loss + \
                      kwargs['low_loss_weight'] * low_region_loss
-        print(total_loss)
 
         running_loss += total_loss.item()
         cnt += image.size(0)
@@ -52,9 +51,9 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         scheduler.step()
 
         if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(train_loader):
-            print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
+            print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(HF loss : {} | LF loss : {})".format(
                 epoch, batch_idx + 1, len(train_loader), np.round((batch_idx + 1) / len(train_loader) * 100.0, 2),
-                running_loss / cnt
+                running_loss / cnt, high_edge_loss, low_region_loss
             ))
 
     return avg_loss
