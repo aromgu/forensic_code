@@ -6,12 +6,11 @@ import matplotlib.pyplot as plt
 def plot_test_results(image, ground_truth, prediction, epoch, batch_idx, save_root_path='example') :
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
+    ax[0].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.6)
     ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([])
 
-    ax[0].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.5)
-    ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([])
-
-    ax[1].imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[1].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
+    ax[1].imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.6)
     ax[1].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([])
 
     plt.tight_layout()
@@ -24,6 +23,7 @@ def plot_test_results(image, ground_truth, prediction, epoch, batch_idx, save_ro
                 bbox_inches='tight', pad_inches=0)
 
     plt.close()
+
 
 def plot_mgp(X, spectrum, mask_list, k):
     fig, ax = plt.subplots(2, k)

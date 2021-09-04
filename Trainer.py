@@ -87,8 +87,7 @@ def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
                     epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss, low_iou, high_iou))
 
                 pred = torch.sigmoid(low_freq_region)
-                pred[pred >= 0.5] = 1
-                pred[pred < 0.5] = 0
+
                 plot_test_results(image, resize(label), pred, epoch, batch_idx + 1)
                 # plot_mgp(image, spectrum, mask_list, k)
 
