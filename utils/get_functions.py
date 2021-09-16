@@ -35,15 +35,18 @@ def get_init():
     parser = argparse.ArgumentParser()
 
     # ETC
-    parser.add_argument('--data_path', default='/media/jhnam19960514/68334fe0-2b83-45d6-98e3-76904bf08127/home/namjuhyeon/Desktop/LAB/common material/Dataset Collection/CASIA/casia2groundtruth')
+    parser.add_argument('--data_path', default='../datasets/casia2groundtruth')
     parser.add_argument('--split_ratio', type=float, default=0.2)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
     parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--save_root', type=str, default='patch32')
+    parser.add_argument('--train', type=bool, default=True)
+    parser.add_argument('--saved_pt', type=str, default='last_100.pth')
 
     # Train Parser Args
-    parser.add_argument('--model_name', default='Ours', help='model architecture name')
+    parser.add_argument('--model_name', default='RRU', help='model architecture name')
     parser.add_argument('--num_labels', type=int, default=2)
-    parser.add_argument('--optimizer', type=str, default='SGD')
+    parser.add_argument('--optimizer', type=str, default='Adam')
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
     parser.add_argument('--criterion', type=str, default='FL')
@@ -53,18 +56,21 @@ def get_init():
     parser.add_argument('--length', type=int, default=10, help='parameter for MGP module')
     parser.add_argument('--preserve_range', type=int, default=50, help='parameter for MGP module')
     parser.add_argument('--num_enc', type=int, default=2, help='parameter for MGP module')
-
+    parser.add_argument('--beta', type=float, default=0.00001, help='Cutout parameter')
 
     parser.add_argument('--fad_option', default='n', help='FAD option')
-    parser.add_argument('--mgp_option', default='y', help='MGP option')
+    parser.add_argument('--mgp_option', default='n', help='MGP option')
+    parser.add_argument('--patch_option', type=str, default='y')
 
     parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
-    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--patch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.01)
+    parser.add_argument('--erase_prob', type=float, default=0.5)
 
-    parser.add_argument('--high_loss_weight', type=float, default=0.5)
-    parser.add_argument('--low_loss_weight', type=float, default=0.5)
+    parser.add_argument('--high_loss_weight', type=float, default=0.3)
+    parser.add_argument('--low_loss_weight', type=float, default=0.7)
 
     args = parser.parse_args()
     return args
@@ -141,3 +147,10 @@ def get_history() :
     history['test_loss'] = list()
 
     return history
+
+def get_patches(image, channel, patch_size):
+    unfold = torch.nn.Unfold(kernel_size=patch_size, stride=patch_size)
+    patches = unfold(image)
+    patches = patches.permute(0, 2, 1)
+    patches = patches.reshape(-1, channel, patch_size, patch_size) # [P*B, C, W, H]
+    return patches

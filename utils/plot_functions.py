@@ -2,16 +2,52 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from utils.get_functions import get_init
 
-def plot_test_results(image, ground_truth, prediction, epoch, batch_idx, save_root_path='example') :
-    fig, ax = plt.subplots(1, 2)
+args = get_init()
+
+def plot_test_results(image, ground_truth, pred,  epoch, batch_idx, save_root_path=args.save_root) :
+    fig, ax = plt.subplots(1, 4)
     ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
-    ax[0].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.6)
-    ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([])
+    ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([]); ax[0].set_title('Input image')
 
-    ax[1].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
-    ax[1].imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.6)
-    ax[1].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([])
+    ax[1].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[1].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([]); ax[1].set_title('Ground Truth')
+
+    ax[2].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[2].axis('off'); ax[2].set_xticks([]); ax[2].set_yticks([]) #ax[2].set_title('HighPred')
+
+    pred[pred >= 0.5] = 1
+    pred[pred < 0.5] = 0
+    ax[3].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[3].axis('off'); ax[3].set_xticks([]); ax[3].set_yticks([]) #ax[2].set_title('HighPred')
+    # ax[3].imshow(low_pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    # ax[3].axis('off'); ax[3].set_xticks([]); ax[3].set_yticks([]);ax[3].set_title('LowPred')
+
+    plt.tight_layout()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
+
+    if not os.path.exists(os.path.join(save_root_path, "epoch{}".format(str(epoch)))) :
+        os.makedirs(os.path.join(save_root_path, "epoch{}".format(str(epoch))))
+
+    plt.savefig(os.path.join('plot', save_root_path, "epoch{}/example_{}.png".format(str(epoch), str(batch_idx))),
+                bbox_inches='tight', pad_inches=0)
+
+    plt.close()
+
+def plot_inputs(image, ground_truth, pred, epoch, batch_idx, save_root_path=args.save_root) :
+    fig, ax = plt.subplots(1, 3)
+    ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)), cmap='gray')
+    ax[0].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='inferno', interpolation='none', alpha=0.6)
+    ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([]); ax[0].set_title('Input')
+
+    ax[1].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[1].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([]); ax[1].set_title('pred')
+
+
+    # ax[2].imshow(low_freq_output[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    # ax[2].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([]); ax[2].set_title('LowInput')
+
 
     plt.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
@@ -23,7 +59,6 @@ def plot_test_results(image, ground_truth, prediction, epoch, batch_idx, save_ro
                 bbox_inches='tight', pad_inches=0)
 
     plt.close()
-
 
 def plot_mgp(X, spectrum, mask_list, k):
     fig, ax = plt.subplots(2, k)
@@ -44,13 +79,20 @@ def plot_mgp(X, spectrum, mask_list, k):
     plt.savefig('./MGP_plot.png', bbox_inches='tight', pad_inches=0)
     plt.close()
 
-def plot_loss(history, model_name, fad_option) :
+def plot_loss(parent_dir, history, save_root) :
     train_loss = history['train_loss']
     test_loss = history['test_loss']
 
     plt.plot(np.arange(len(train_loss)), train_loss, label='train loss', color='r')
     plt.plot(np.arange(len(test_loss)), test_loss, label='test loss', color='skyblue')
+    plt.title('Loss Tendency')
     plt.legend()
-    plt.ylim(0,2)
+    plt.ylim(0,3)
+    # plt.show()
 
-    plt.savefig(f'{model_name}''_fad_'f'{fad_option}''.png', dpi=300, bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(parent_dir, save_root,'loss.png'), dpi=300, bbox_inches='tight', pad_inches=0)
+
+
+if __name__ == '__main__':
+    f = open('./history.txt', 'r').readlines()
+    plot_loss('./loss.png', f, 'lol')
