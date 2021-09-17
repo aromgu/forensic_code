@@ -2,10 +2,8 @@ from time import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.metrics
 from tqdm import tqdm
 import math
-import tensorflow as tf
 from utils import *
 from utils.plot_functions import plot_test_results, plot_inputs
 
@@ -52,28 +50,28 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
     for batch_idx, (image, label) in enumerate(train_loader):
         image, label = image.to(device), label.to(device)
 
-        if args.patch_option == 'y':
-            patched_image = get_patches(image, 3, args.patch_size)
-            patched_label = get_patches(label, 1, args.patch_size)
-            #
-            # # RANDOM ERASE
-            area = patched_image.size()[2] * patched_image.size()[3]
-            r = np.random.rand(1)
-            #
-            if r < args.erase_prob:
-                # for i in range(10):
+        if args.patch_size != 0:
+            image = get_patches(image, 3, args.patch_size)
+            label = get_patches(label, 1, args.patch_size)
+
+            # RANDOM ERASE
+
+        area = image.size()[2] * image.size()[3]
+        r = np.random.rand(1)
+        if r < args.erase_prob:
+            for i in range(10):
                 target_area = random.uniform(1e-5, 0.01) * area
                 aspect_ratio = random.uniform(0.3, 1 / 0.3)
 
                 h = int(round(math.sqrt(target_area * aspect_ratio)))
                 w = int(round(math.sqrt(target_area / aspect_ratio)))
 
-                if w < patched_image.size()[3] and h < patched_image.size()[2]:
-                    x1 = random.randint(0, patched_image.size()[2] - h)
-                    y1 = random.randint(0, patched_image.size()[3] - w)
+                if w < image.size()[3] and h < image.size()[2]:
+                    x1 = random.randint(0, image.size()[2] - h)
+                    y1 = random.randint(0, image.size()[3] - w)
 
-                    patched_image[:, :, x1:x1 + h, y1:y1 + w] = 0
-                    patched_label[:, :, x1:x1 + h, y1:y1 + w] = 1
+                    image[:, :, x1:x1 + h, y1:y1 + w] = 0
+                    label[:, :, x1:x1 + h, y1:y1 + w] = 1
 
         # CUTOUT
         # lam = np.random.beta(args.beta, args.beta)
@@ -87,23 +85,25 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         # bbx1, bby1, bbx2, bby2 = rand_bbox(image.size(), lam)
         # image[:, :, bbx1:bbx2, bby1:bby2] = image[rand_index, :, bbx1:bbx2, bby1:bby2]
         # label[:, :, bbx1:bbx2, bby1:bby2] = 1
-        #
-        # fig, ax = plt.subplots(1,2)
-        # ax[0].imshow(image[0].permute(1,2,0).cpu().detach().numpy())
-        # ax[1].imshow(label[0][0].cpu().detach().numpy(), cmap='gray')
-        # ax[0].axis('off'); ax[1].axis('off')
-        # plt.show()
+            pred = model(image)
+            if args.criterion == 'BCE' or 'FL':
+                loss = criterion(pred, label)
+            else:
+                loss, bce, dice_loss = criterion(pred, label)
 
-            pred = model(patched_image)
-            loss = criterion(pred, patched_label)
-        # fig, ax = plt.subplots(1,2)
-        # ax[0].imshow(img_patch[0].permute(1,2,0).cpu().detach().numpy())
-        # ax[1].imshow(pred[0][0].cpu().detach().numpy(), cmap='gray')
-        # ax[0].axis('off'); ax[1].axis('off')
-        # plt.show()
         else : 
             pred = model(image)
-            loss = criterion(pred, label)
+            if args.criterion == 'BCE' or 'FL':
+                loss = criterion(pred, label)
+            else:
+                loss, bce, dice_loss = criterion(pred, label)
+
+        # fig, ax = plt.subplots(1, 2)
+        # ax[0].imshow(image[0].permute(1, 2, 0).cpu().detach().numpy())
+        # ax[1].imshow(pred[0][0].cpu().detach().numpy(), cmap='gray')
+        # ax[0].axis('off');
+        # ax[1].axis('off')
+        # plt.show()
         running_loss += loss.item()
         cnt += image.size(0)
 
@@ -116,9 +116,14 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         scheduler.step()
 
         if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(train_loader):
-            print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
-                epoch, batch_idx + 1, len(train_loader), np.round((batch_idx + 1) / len(train_loader) * 100.0, 2),
-                running_loss / cnt))
+            if args.criterion == 'DICE':
+                print("{} patch size {}| Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(bce : {} | dice : {})".format(args.model_name,
+                    args.patch_size, epoch, batch_idx + 1, len(train_loader), np.round((batch_idx + 1) / len(train_loader) * 100.0, 2),
+                    running_loss / cnt, bce, dice_loss))
+            else:
+                print("{} patch size {}| Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(args.model_name,
+                    args.patch_size, epoch, batch_idx + 1, len(train_loader), np.round((batch_idx + 1) / len(train_loader) * 100.0, 2),
+                    running_loss / cnt,loss))
 
     return avg_loss
 
@@ -137,29 +142,41 @@ def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
         with torch.no_grad():
             pred = model(image)
 
-            loss = criterion(pred, label)
+            if args.criterion == 'BCE' or 'FL':
+                loss = criterion(pred, label)
+            else:
+                loss, bce, dice_loss = criterion(pred, label)
 
             running_loss += loss.item()
             cnt += image.size(0)
 
             avg_loss = running_loss / cnt  # 무야호 춧
 
-            if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(test_loader):
-                print("Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
-                    epoch, batch_idx + 1, len(test_loader), np.round((batch_idx + 1) / len(test_loader) * 100.0, 2), avg_loss))
+            if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(test_loader):
+                if args.criterion == 'DICE':
+                    print(
+                        "{} patch size {}| Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(bce : {} | dice : {})".format(
+                            args.model_name,
+                            args.patch_size, epoch, batch_idx + 1, len(test_loader),
+                            np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
+                            running_loss / cnt, bce, dice_loss))
+                else:
+                    print("{} patch size {}| Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
+                        args.model_name,
+                        args.patch_size, epoch, batch_idx + 1, len(test_loader),
+                        np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
+                        running_loss / cnt, loss))
+            plot_test_results(image, resize(label), pred, epoch, batch_idx + 1)
 
-                # plot_inputs(image, resize(label), pred, pred, epoch, batch_idx+1)
-                plot_test_results(image, resize(label), pred, epoch, batch_idx + 1)
-
-            if (epoch == args.epochs or epoch == 1):
+            if (epoch == args.epochs or epoch > 0):
 
                 acc, precision, recall, f1, iou = get_metrices(pred, label)
 
                 acc_list.append(acc)
                 f1_list.append(f1)
                 iou_list.append(iou)
-                precision_list.append(precision)# .cpu().detach().numpy())
-                recall_list.append(recall)#.cpu().detach().numpy())
+                precision_list.append(precision)
+                recall_list.append(recall)
 
     print("++++++++++ Test Report ++++++++++")
     print("mean Accuracy : ", np.mean(acc_list))
@@ -173,6 +190,7 @@ def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
 
 def fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, epochs, **kwargs):
     history = get_history()
+    acc, iou, f1, precision, recall = 0.0, 0.0, 0.0, 0.0, 0.0
 
     for epoch in tqdm(range(1, epochs + 1)) :
         start_time = time()

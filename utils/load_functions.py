@@ -12,9 +12,9 @@ def load_dataloader(data_path, split_ratio, batch_size, img_size, num_workers) :
     Tp_label_path = os.path.join(data_path, 'CASIA2.0_Groundtruth')
     Au_image_path = os.path.join(data_path, 'CASIA2.0_revised/Au')
 
-    Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)]) #[:10]
-    Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)]) #[:10]
-    Au_images = sorted([Au_image_path + '/' + x for x in os.listdir(Au_image_path)])
+    Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)]) #[:100]
+    Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)]) #[:100]
+    Au_images = sorted([Au_image_path + '/' + x for x in os.listdir(Au_image_path)]) #[:100]
     Au_labels = ['Au' for _ in range(len(Au_images))]
 
     Total_images = Tp_images + Au_images
@@ -22,6 +22,18 @@ def load_dataloader(data_path, split_ratio, batch_size, img_size, num_workers) :
 
     train_x, test_x, train_y, test_y = train_test_split(Total_images, Total_labels, test_size=split_ratio, shuffle=True)
 
+    cnt = 0
+    for label_ in train_y :
+        if label_ == 'Au' :
+            cnt += 1
+    print("#train Tp = ", len(train_y) - cnt)
+    print("#train Au = ", cnt)
+    cnt = 0
+    for label_ in test_y :
+        if label_ == 'Au' :
+            cnt += 1
+    print("#test Tp = ", len(test_y) - cnt)
+    print("#test Au = ", cnt)
     train_transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((img_size, img_size)),

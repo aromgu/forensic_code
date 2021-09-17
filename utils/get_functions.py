@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import numpy as np
+import torch.nn.functional as F
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
@@ -31,6 +32,24 @@ class FocalLoss(nn.Module):
         else:
             return F_loss
 
+class Dice_loss(nn.Module):
+    def __init__(self):
+        super(Dice_loss, self).__init__()
+    def forward(self, pred, target):
+        smooth = 1e-5
+
+        bce = F.binary_cross_entropy_with_logits(pred, target, reduction='mean')
+        pred = torch.sigmoid(pred)
+        intersection = (pred * target).sum(dim=(2, 3))
+        union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
+
+        dice = 2.0 * (intersection + smooth) / (union + smooth)
+
+        dice_loss = 1.0 - dice.mean()
+        loss = bce + dice_loss
+
+        return loss, bce, dice_loss
+
 def get_init():
     parser = argparse.ArgumentParser()
 
@@ -39,17 +58,17 @@ def get_init():
     parser.add_argument('--split_ratio', type=float, default=0.2)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--save_root', type=str, default='patch32')
-    parser.add_argument('--train', type=bool, default=True)
+    parser.add_argument('--save_root', type=str, default='ResCNN')
+    parser.add_argument('--train', type=bool, default=False)
     parser.add_argument('--saved_pt', type=str, default='last_100.pth')
 
     # Train Parser Args
-    parser.add_argument('--model_name', default='RRU', help='model architecture name')
+    parser.add_argument('--model_name', default='ResCNN', help='model architecture name')
     parser.add_argument('--num_labels', type=int, default=2)
-    parser.add_argument('--optimizer', type=str, default='Adam')
+    parser.add_argument('--optimizer', type=str, default='SGD')
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
-    parser.add_argument('--criterion', type=str, default='FL')
+    parser.add_argument('--criterion', type=str, default='BCE')
 
     # Mask Generation Process hyperparameters
     parser.add_argument('--angle', type=int, default=30, help='parameter for MGP module')
@@ -60,14 +79,13 @@ def get_init():
 
     parser.add_argument('--fad_option', default='n', help='FAD option')
     parser.add_argument('--mgp_option', default='n', help='MGP option')
-    parser.add_argument('--patch_option', type=str, default='y')
+    parser.add_argument('--erase_prob', type=float, default=0.0)
+    parser.add_argument('--patch_size', type=int, default=0)
 
     parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
-    parser.add_argument('--patch_size', type=int, default=64)
     parser.add_argument('--batch_size', type=int, default=2)
-    parser.add_argument('--epochs', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=0.01)
-    parser.add_argument('--erase_prob', type=float, default=0.5)
 
     parser.add_argument('--high_loss_weight', type=float, default=0.3)
     parser.add_argument('--low_loss_weight', type=float, default=0.7)
@@ -105,8 +123,10 @@ def get_criterion(args) :
         criterion = nn.BCEWithLogitsLoss()
     elif args.criterion == 'FL' :
         criterion = FocalLoss()
+    elif args.criterion == 'DICE':
+        criterion = Dice_loss()
     else :
-        print("You choose wrong optimizer : [BCE, FL]")
+        print("You choose wrong criterion : [BCE, FL, DICE]")
         sys.exit()
 
     print("Your criterion is : ", criterion)
