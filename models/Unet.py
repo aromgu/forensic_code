@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Unet(nn.Module) :
-    def __init__(self, in_dim=3, n_class=1, num_filters=32):
+    def __init__(self, in_dim=3, n_class=3, num_filters=32):
         super(Unet, self).__init__()
 
         self.in_dim      = in_dim
@@ -35,7 +35,7 @@ class Unet(nn.Module) :
 
         # output block
         self.out = nn.Sequential(
-            nn.Conv2d(self.num_filters, 1, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+            nn.Conv2d(self.num_filters, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
         )
 
     def forward(self, x): # [?, 12, 256, 256]

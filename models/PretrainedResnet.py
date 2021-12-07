@@ -1,6 +1,7 @@
 import torch.nn.functional as f
 import torch.nn as nn
 import torchvision.models as models
+import torch
 
 class ResCNN(nn.Module):
     def __init__(self):
@@ -34,4 +35,11 @@ class ResCNN(nn.Module):
         x = f.leaky_relu(self.bn5(self.conv5(self.up5(x))))
         x = f.leaky_relu(self.bn6(self.conv6(self.up6(x))))
         out = self.out(x)
+
         return out
+
+if __name__ == '__main__':
+    model = ResCNN().cuda()
+    inp = torch.rand((2, 3, 256, 256)).cuda() # 내말이
+    out = model(inp)
+    print(out.shape)

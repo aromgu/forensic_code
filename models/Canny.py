@@ -134,11 +134,11 @@ class Net(nn.Module):
         # return blurred_img, grad_mag, grad_orientation, thin_edges, thresholded, early_threshold
         return thresholded
 
+net = Net(threshold=0.).to(torch.device('cuda'))
+
 def canny(raw_img, device):
     # img = torch.from_numpy(raw_img).unsqueeze(dim=0).to(device)
     # batch = torch.stack([img]).float()
-
-    net = Net(threshold=0.).to(device)
     b,c,w,h = raw_img.shape
 
     zeros = torch.zeros((b,c,w,h))
