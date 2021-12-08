@@ -7,23 +7,19 @@ from utils.get_functions import get_init
 
 args = get_init()
 
-def plot_test_results(image, ground_truth, pred,  epoch, batch_idx, save_root_path=args.save_root) :
-    fig, ax = plt.subplots(1, 4)
+def plot_test_results(image, ground_truth, prediction,  epoch, batch_idx, save_root_path=args.save_root) :
+    fig, ax = plt.subplots(1, 3)
     ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
     ax[0].axis('off'); ax[0].set_xticks([]); ax[0].set_yticks([]); ax[0].set_title('Input image')
 
     ax[1].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='gray')
     ax[1].axis('off'); ax[1].set_xticks([]); ax[1].set_yticks([]); ax[1].set_title('Ground Truth')
 
-    ax[2].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
-    ax[2].axis('off'); ax[2].set_xticks([]); ax[2].set_yticks([]) #ax[2].set_title('HighPred')
+    prediction[prediction >= 0.5] = 1
+    prediction[prediction < 0.5] = 0
 
-    pred[pred >= 0.5] = 1
-    pred[pred < 0.5] = 0
-    ax[3].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
-    ax[3].axis('off'); ax[3].set_xticks([]); ax[3].set_yticks([]) #ax[2].set_title('HighPred')
-    # ax[3].imshow(low_pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
-    # ax[3].axis('off'); ax[3].set_xticks([]); ax[3].set_yticks([]);ax[3].set_title('LowPred')
+    ax[2].imshow(prediction[0].squeeze().cpu().detach().numpy(), cmap='gray')
+    ax[2].axis('off'); ax[2].set_xticks([]); ax[2].set_yticks([]) #ax[2].set_title('HighPred')
 
     plt.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
@@ -92,6 +88,7 @@ def plot_loss(parent_dir, history, save_root) :
     # plt.show()
 
     plt.savefig(os.path.join(parent_dir, save_root,'loss.png'), dpi=300, bbox_inches='tight', pad_inches=0)
+    plt.close()
 
 
 def plot_confusion_matrix(cm, target_names=None, cmap=None, normalize=True, labels=True, title='Confusion matrix'):
@@ -131,6 +128,7 @@ def plot_confusion_matrix(cm, target_names=None, cmap=None, normalize=True, labe
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
     plt.show()
+    plt.close()
 
 if __name__ == '__main__':
     f = open('./history.txt', 'r').readlines()

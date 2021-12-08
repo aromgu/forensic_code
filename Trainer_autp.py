@@ -87,13 +87,6 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         # low = _YUV2RGB(low).to(device)
         # high = _YUV2RGB(high).to(device)
 
-        # fig, ax = plt.subplots(1,4)
-        # ax[0].imshow(image[0].permute(1, 2, 0).cpu().detach().numpy())
-        # ax[1].imshow(low[0].permute(1, 2, 0).cpu().detach().numpy())
-        # ax[2].imshow(high[0].permute(1, 2, 0).cpu().detach().numpy())
-        # ax[3].imshow(label[0].permute(1,2,0).cpu().detach().numpy(), cmap='gray')
-        # plt.show()
-
         # prediction = model(image)
         # tp_pred, au_pred, fcn = model(tp, au)
         reconstructed= model(tp)
@@ -103,7 +96,6 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
         # fcn_loss = CE(fcn.float(), torch.ones(b).to(device=device, dtype=torch.int64))
 
         # tp_loss, bce, dice_loss = criterion(tp_pred, tp_y)
-
 
         mse = MSE(reconstructed, au)
         # loss_, bce, dice_loss = criterion(tp_pred, tp_y)
@@ -138,24 +130,23 @@ def train_epoch(device, model, criterion, optimizer, scheduler, train_loader, ep
                     epoch, batch_idx + 1, len(train_loader), np.round((batch_idx + 1) / len(train_loader) * 100.0, 2),
                     round(running_loss, 4) / cnt, format(total_loss,'.4f')))
 
-        # if (batch_idx + 1) == len(train_loader):
-        #     import matplotlib.pyplot as plt
-        #     fig, ax = plt.subplots(1, 2)
-        #     ax[0].imshow(pred_np, cmap='gray')
-        #     ax[1].imshow(label_np, cmap='gray')
-        #     plt.show()
-
     return avg_loss
 
 def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
     model.eval()
     running_loss, cnt = 0.0, 0
     avg_loss = 0.0
-    acc_list = []
-    iou_list = []
-    f1_list = []
-    precision_list = []
-    recall_list = []
+    tp_acc_list = []
+    tp_iou_list = []
+    tp_f1_list = []
+    tp_precision_list = []
+    tp_recall_list = []
+
+    au_acc_list = []
+    au_iou_list = []
+    au_f1_list = []
+    au_precision_list = []
+    au_recall_list = []
 
     for batch_idx, (image, label) in enumerate(test_loader):
         with torch.no_grad():
@@ -179,86 +170,99 @@ def test_epoch(device, model, criterion, test_loader, epoch, **kwargs) :
             #
             # low = _YUV2RGB(low).to(torch.device('cuda'))
             # high = _YUV2RGB(high).to(torch.device('cuda'))
-            reconstructed = model(image)
-            # reconstructed = (reconstructed.squeeze().permute(1,2,0).cpu().detach().numpy() * 255).astype(np.uint8)
-            # fig, ax = plt.subplots(1,4)
-            # ax[0].imshow(image.squeeze().permute(1,2,0).cpu().detach().numpy())
-            # reconstructed_ = cv2.cvtColor(reconstructed.squeeze().permute(1,2,0).cpu().detach().numpy(), cv2.COLOR_BGR2RGB)
-            # ax[1].imshow(reconstructed_)
-            # ax[2].imshow(label.squeeze().cpu().detach().numpy(), cmap='gray')
-            # ax[3].imshow(prediction.squeeze().cpu().detach().numpy(), cmap='gray')
-            # ax[1].axis('off');
-            # ax[1].set_xticks([]);
-            # ax[1].set_yticks([]);
-            # ax[0].axis('off');
-            # ax[0].set_xticks([]);
-            # ax[0].set_yticks([]);
-            # ax[2].axis('off');
-            # ax[2].set_xticks([]);
-            # ax[2].set_yticks([]);
-            # ax[3].axis('off');
-            # ax[3].set_xticks([]);
-            # ax[3].set_yticks([]);
-            # plt.tight_layout()
-            # plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
-            # plt.show()
+            au = []
+            tp = []
+            if torch.count_nonzero(label) == 0:
+                au_pred = model(image)
+                au_loss, bce, dice_loss = criterion(au_pred, label)
 
-            mse = MSE(reconstructed, image)
-            # loss_, bce, dice_loss = criterion(prediction, label)
+                running_loss += au_loss.item()
+                cnt += image.size(0)
+                avg_loss = running_loss / cnt  # 무야호 춧
 
-            total_loss = mse #+ loss_ / 2
-            running_loss += total_loss.item()
-            cnt += image.size(0)
-
-            avg_loss = running_loss / cnt  # 무야호 춧
-
-            if (batch_idx + 1) % 1000 == 0 or (batch_idx + 1) == len(test_loader):
-                if args.criterion == 'DICE':
-                    print(
-                        "{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(bce : {} | dice : {})".format(
+                if (batch_idx + 1) % 1000 == 0 or (batch_idx + 1) == len(test_loader):
+                    if args.criterion == 'DICE':
+                        print(
+                            "{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(bce : {} | dice : {})".format(
+                                args.model_name,
+                                epoch, batch_idx + 1, len(test_loader),
+                                np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
+                                round(running_loss, 4) / cnt, format(bce,'.4f'), format(dice_loss,'.4f')))
+                    else:
+                        print("{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
                             args.model_name,
                             epoch, batch_idx + 1, len(test_loader),
                             np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
-                            round(running_loss, 4) / cnt, format(mse,'.4f'), format(mse,'.4f')))
-                else:
-                    print("{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
-                        args.model_name,
-                        epoch, batch_idx + 1, len(test_loader),
-                        np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
-                        round(running_loss, 4) / cnt, format(total_loss,'.4f')))
+                            round(running_loss, 4) / cnt, format(au_loss,'.4f')))
 
-                # plot_test_results(image, resize(label), reconstructed, epoch, batch_idx + 1)
+                    plot_test_results(image, resize(label), au_pred, epoch, batch_idx + 1)
+                    if epoch == args.epochs:
+                        # TP
+                        au_pred = au_pred
+                        au_pred_np = F.sigmoid(au_pred.squeeze()).cpu().detach().numpy()
+                        label_np = label.squeeze().cpu().detach().numpy()
 
-            if epoch == args.epochs: # if (epoch == args.epoch) or epoch > 0 :
-                pred = reconstructed
-                pred_np = F.sigmoid(pred.squeeze()).cpu().detach().numpy()
-                label_np = label.squeeze().cpu().detach().numpy()
+                        au_pred_np[au_pred_np >= 0.5] = 1;
+                        au_pred_np[au_pred_np < 0.5] = 0
 
-                pred_np[pred_np>=0.5]=1; pred_np[pred_np<0.5]=0
+                        acc, precision, recall, f1, iou = get_metrices(au_pred_np, label_np)
+                        if precision is np.isnan(precision):
+                            sys.exit(1)
+                        au_acc_list.append(acc)
+                        au_f1_list.append(f1)
+                        au_iou_list.append(iou)
+                        au_precision_list.append(precision)
+                        au_recall_list.append(recall)
 
-                # acc, precision, recall, f1, iou = get_metrices(pred_np, label_np)
-                # print(precision)
-                acc, precision, recall, f1, iou = 1,1,1,1,1
-                if precision is np.isnan(precision) :
-                    sys.exit(1)
-                acc_list.append(acc)
-                f1_list.append(f1)
-                iou_list.append(iou)
-                precision_list.append(precision)
-                recall_list.append(recall)
+                        plot_test_results(image, resize(label), au_pred, epoch, batch_idx + 1)
+            else:
+                tp_pred = model(image)
+                tp_loss, bce, dice_loss = criterion(tp_pred, label)
 
-                ## change
-                # plot_test_results(image, resize(label), reconstructed, epoch, batch_idx + 1)
-    # print("++++++++++ Test Report ++++++++++")
-    # print("mean Accuracy : ", round(np.mean(acc_list),4))
-    # print("mean IoU : ", round(np.mean(iou_list),4))
-    # print("mean F1 : ", round(np.mean(f1_list),4))
-    # print("mean Precision : ", round(np.mean(precision_list),4))
-    # print("mean Recall : ", round(np.mean(recall_list),4))
-    # print("++++++++++ Test Report ++++++++++")
+                running_loss += tp_loss.item()
+                cnt += image.size(0)
+                avg_loss = running_loss / cnt  # 무야호 춧
 
-    return round(avg_loss,4), round(np.mean(acc_list),4), round(np.mean(iou_list),4), \
-           round(np.mean(f1_list),4), round(np.mean(precision_list),4), round(np.mean(recall_list),4)
+                if (batch_idx + 1) % 1000 == 0 or (batch_idx + 1) == len(test_loader):
+                    if args.criterion == 'DICE':
+                        print(
+                            "{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}(bce : {} | dice : {})".format(
+                                args.model_name,
+                                epoch, batch_idx + 1, len(test_loader),
+                                np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
+                                round(running_loss, 4) / cnt, format(bce,'.4f'), format(dice_loss,'.4f')))
+                    else:
+                        print("{} Epoch {} | batch_idx : {}/{}({}%) COMPLETE | loss : {}".format(
+                            args.model_name,
+                            epoch, batch_idx + 1, len(test_loader),
+                            np.round((batch_idx + 1) / len(test_loader) * 100.0, 2),
+                            round(running_loss, 4) / cnt, format(tp_loss,'.4f')))
+
+                plot_test_results(image, resize(label), tp_pred, epoch, batch_idx + 1)
+
+                if epoch == args.epochs:
+                    # TP
+                    tp_pred = tp_pred
+                    tp_pred_np = F.sigmoid(tp_pred.squeeze()).cpu().detach().numpy()
+                    label_np = label.squeeze().cpu().detach().numpy()
+
+                    tp_pred_np[tp_pred_np>=0.5]=1; tp_pred_np[tp_pred_np<0.5]=0
+
+                    acc, precision, recall, f1, iou = get_metrices(tp_pred_np, label_np)
+                    if precision is np.isnan(precision) :
+                        sys.exit(1)
+                    tp_acc_list.append(acc)
+                    tp_f1_list.append(f1)
+                    tp_iou_list.append(iou)
+                    tp_precision_list.append(precision)
+                    tp_recall_list.append(recall)
+
+                    plot_test_results(image, resize(label), tp_pred, epoch, batch_idx + 1)
+
+    return round(avg_loss,4), round(np.mean(tp_acc_list),4), round(np.mean(tp_iou_list),4), \
+           round(np.mean(tp_f1_list),4), round(np.mean(tp_precision_list),4), round(np.mean(tp_recall_list),4), \
+            round(np.mean(au_acc_list),4), round(np.mean(au_iou_list),4), \
+           round(np.mean(au_f1_list),4), round(np.mean(au_precision_list),4), round(np.mean(au_recall_list),4)
 
 def fit(device, model, criterion, optimizer, scheduler, train_loader, test_loader, epochs, **kwargs):
     history = get_history()
@@ -271,7 +275,10 @@ def fit(device, model, criterion, optimizer, scheduler, train_loader, test_loade
         train_loss = train_epoch(device, model, criterion, optimizer, scheduler, train_loader, epoch, **kwargs)
 
         print("EVALUATE")
-        test_loss, acc, iou, f1, precision, recall = test_epoch(device, model, criterion, test_loader, epoch, **kwargs)
+        test_loss, tp_acc, tp_iou, tp_f1, tp_precision, tp_recall, au_acc, au_iou, au_f1, au_precision, au_recall = test_epoch(device, model, criterion, test_loader, epoch, **kwargs)
+
+        save_metrics(args.parent_dir, args.save_root, [au_acc, au_iou, au_f1, au_precision, au_recall], save_path='au_result_metric.txt')
+        save_metrics(args.parent_dir, args.save_root, [tp_acc, tp_iou, tp_f1, tp_precision, tp_recall], save_path='tp_result_metric.txt')
 
         end_time = time() - start_time
         m, s = divmod(end_time, 60)

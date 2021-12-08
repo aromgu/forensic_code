@@ -7,12 +7,14 @@ import numpy as np
 from PIL import Image
 
 # Filter Module =======
-class Filter(nn.Module):
-    def __init__(self, size, band_start, band_end, use_learnable=True, norm=False):
-        super(Filter, self).__init__()
+class LFilter(nn.Module):
+    def __init__(self, size, diagonal, use_learnable=True, norm=False):
+        super(LFilter, self).__init__()
         self.use_learnable = use_learnable
 
-        self.base = nn.Parameter(torch.tensor(generate_filter(band_start, band_end, size)), requires_grad=False)
+        # low = generate_filter(band_start, band_end, size)
+        low = create_filter(img_size=256, diagonal=diagonal)
+        self.base = nn.Parameter(low, requires_grad=False)
         if self.use_learnable:
             self.learnable = nn.Parameter(torch.randn(size, size), requires_grad=True)
             self.learnable.data.normal_(0., 0.1)
@@ -21,9 +23,38 @@ class Filter(nn.Module):
 
         self.norm = norm
         if norm:
-            self.ft_num = nn.Parameter(torch.sum(torch.tensor(generate_filter(band_start, band_end, size))), requires_grad=False)
+            self.ft_num = nn.Parameter(torch.sum(low), requires_grad=False)
+    def forward(self, x):
+        if self.use_learnable:
+            filt = self.base + norm_sigma(self.learnable)
+        else:
+            filt = self.base
+
+        if self.norm:
+            y = x * filt / self.ft_num
+        else:
+            y = x * filt
+
+        return y
+
+class HFilter(nn.Module):
+    def __init__(self, size, diagonal, use_learnable=True, norm=False):
+        super(HFilter, self).__init__()
+        self.use_learnable = use_learnable
+
+        high = create_filter(img_size=256, diagonal=2)
 
 
+        self.base = nn.Parameter(high, requires_grad=False)
+        if self.use_learnable:
+            self.learnable = nn.Parameter(torch.randn(size, size), requires_grad=True)
+            self.learnable.data.normal_(0., 0.1)
+            # Todo
+            # self.learnable = nn.Parameter(torch.rand((size, size)) * 0.2 - 0.1, requires_grad=True)
+
+        self.norm = norm
+        if norm:
+            self.ft_num = nn.Parameter(torch.sum(high), requires_grad=False)
     def forward(self, x):
         if self.use_learnable:
             filt = self.base + norm_sigma(self.learnable)
@@ -38,7 +69,7 @@ class Filter(nn.Module):
 
 # FAD =========
 class FAD_Head(nn.Module):
-    def __init__(self, size):
+    def __init__(self, size, diagonal):
         super(FAD_Head, self).__init__()
 
         # init DCT matrix
@@ -47,24 +78,31 @@ class FAD_Head(nn.Module):
 
         # define base filters and learnable
         # 0 - 1/16 || 1/16 - 1/8 || 1/8 - 1
-        low_filter = Filter(size, 0, size // 16)
-        middle_filter = Filter(size, size // 16, size // 8)
-        high_filter = Filter(size, size // 8, size)
-        all_filter = Filter(size, 0, size * 2)
+        # low_filter = Filter(size, 0, size // 16)
+        # middle_filter = Filter(size, size // 16, size // 8)
+        # high_filter = Filter(size, size // 8, size)
+        # all_filter = Filter(size, 0, size * 2)
+        self.diagonal = diagonal
+        low_filter = LFilter(size, diagonal)
+        high_filter = HFilter(size, diagonal)
 
-        self.filters = nn.ModuleList([low_filter, middle_filter, high_filter, all_filter])
+        self.filters = nn.ModuleList([low_filter,high_filter])
 
     def forward(self, x):
         # DCT
-        x_freq = self._DCT_all @ x @ self._DCT_all_T    # [N, 3, 299, 299]
+        x_freq = self._DCT_all @ x @ self._DCT_all_T
+        # plt.imshow(x_freq[0].permute(2,1,0).cpu().detach().numpy())
+        # plt.show()
 
         # 4 kernel
         y_list = []
-        for i in range(4):
-            x_pass = self.filters[i](x_freq)  # [N, 3, 299, 299]
-            y = self._DCT_all_T @ x_pass @ self._DCT_all    # [N, 3, 299, 299]
+        for i in range(2):
+            x_pass = self.filters[i](x_freq)
+
+            y = self._DCT_all_T @ x_pass @ self._DCT_all
+
             y_list.append(y)
-        out = torch.cat(y_list, dim=1)    # [N, 12, 299, 299]
+        out = torch.cat(y_list, dim=1)
         return out
 
 
@@ -131,10 +169,14 @@ def DCT_mat(size):
     m = [[(np.sqrt(1. / size) if i == 0 else np.sqrt(2. / size)) * np.cos((j + 0.5) * np.pi * i / size) for j in
           range(size)] for i in range(size)]
     return m
-
+# or i + j <= start
 def generate_filter(start, end, size):
-    return [[0. if i + j > end or i + j <= start else 1. for j in range(size)] for i in range(size)]
+    return [[0. if i + j > end
+             else 1. for j in range(size)] for i in range(size)]
 
+def high_filter(start, end, size):
+    return [[1. if i + j > end or i + j <= start else 0. for j in range(size)] for i in range(size)]
+    # end = 32, start = 256
 
 def norm_sigma(x):
     return 2. * torch.sigmoid(x) - 1.
@@ -151,24 +193,23 @@ def get_xcep_state_dict(pretrained_path='pretrained/xception-b5690688.pth'):
 
 
 class Fnet(nn.Module):
-    def __init__(self, img_size):
+    def __init__(self, img_size, diagonal):
         super(Fnet, self).__init__()
         # self.x = x
         # w, h, c = x.shape
-        self.FAD_Head = FAD_Head(img_size)
-        self.LFS_Head = LFS_Head(img_size, 10, 6)
+        self.FAD_Head = FAD_Head(img_size, diagonal)
 
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         # x = self.conv1(x)
         fadx = self.FAD_Head(x)
-        lfsx = self.LFS_Head(x)
+        # lfsx = self.LFS_Head(x)
 
-        fea_LFS = self._norm_fea(lfsx)
+        # fea_LFS = self._norm_fea(lfsx)
 
         # return torch.cat((fadx, lfsx), dim=1)
-        return fadx, fea_LFS
+        return fadx
 
     def _norm_fea(self, fea):
         f = self.relu(fea)
@@ -176,20 +217,28 @@ class Fnet(nn.Module):
         f = f.view(f.size(0), -1)
         return f
 
+import torch
+def create_filter(img_size, diagonal):
+    filter = torch.ones(size=(img_size, img_size))
+    filter = torch.triu(filter, diagonal=diagonal) # 0 - 256
+    filter = torch.fliplr(filter)
+
+    return filter
+    # plt.imshow(filter.numpy())
+    # plt.`show`()
+
 if __name__ == '__main__':
-    model = Fnet()
-    src = cv2.imread('./img1.jpg')
-    dst = cv2.resize(src, dsize=(img_size, img_size), interpolation=cv2.INTER_AREA)
-    dst = torch.Tensor(dst)
-    dst = dst.permute(2,0,1)
-    dst = torch.unsqueeze(dst, dim=0)
-    fad, lfs = model(dst)
-    print(lfs.shape)
-    plt.imshow(src)
-    fig, ax = plt.subplots(2, 4)
-    for i in range(2) :
-        ax[0, i].imshow(np.asarray(np.transpose(lfs[0][3*i:3*(i+1)].detach().numpy(), (1, 2, 0)), dtype=np.uint8))
-        # ax[0, i].imshow(np.asarray(np.transpose(lfs[0][3 * i:3 * (i + 1)].detach().numpy(), (1, 2, 0)), dtype=np.uint8))
-        # ax[1, i].imshow(lfs[0][i].detach().numpy(), cmap='gray')
-    plt.show()
-    plt.show()
+    model = Fnet(256, diagonal = 180)
+
+    size = 256
+    src = cv2.imread('../mingi.jpg')
+    src = cv2.resize(src, (256,256))
+    src = np.transpose(src,(2,1,0))
+    src = torch.from_numpy(np.expand_dims(src, axis=0)).float()
+
+    out = model(src)
+
+    # for i in range(6):
+    #     out_ = out[0][i].permute(1,0).detach().cpu().numpy()
+    #     plt.imshow(out_)
+    #     plt.show()
