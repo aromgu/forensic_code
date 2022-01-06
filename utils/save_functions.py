@@ -33,7 +33,7 @@ def save_history(history, parent_dir, save_root):
 
 def save_metrics(parent_dir, save_root, metrcis, save_path) :
     print("+++++++++++ TEST REPORT +++++++++++")
-    print("Accuracy : {}\n".format(metrcis[0]))
+    print("AUC : {}\n".format(metrcis[0]))
     print("IoU : {}\n".format(metrcis[1]))
     print("F1-score : {}\n".format(metrcis[2]))
     print("Precision : {}\n".format(metrcis[3]))
@@ -43,7 +43,7 @@ def save_metrics(parent_dir, save_root, metrcis, save_path) :
     f = open(os.path.join(parent_dir, save_root, save_path), 'w')
 
     f.write("###################### TEST REPORT ######################\n")
-    f.write("Accuracy : {}\n".format(metrcis[0]))
+    f.write("AUC : {}\n".format(metrcis[0]))
     f.write("IoU : {}\n".format(metrcis[1]))
     f.write("F1-score : {}\n".format(metrcis[2]))
     f.write("Precision : {}\n".format(metrcis[3]))
@@ -51,4 +51,3 @@ def save_metrics(parent_dir, save_root, metrcis, save_path) :
     f.write("###################### TEST REPORT ######################")
 
     f.close()
-

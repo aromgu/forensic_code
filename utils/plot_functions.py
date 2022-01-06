@@ -32,6 +32,43 @@ def plot_test_results(image, ground_truth, prediction,  epoch, batch_idx, save_r
 
     plt.close()
 
+
+def plot_feature_maps(feature_name, image, pred, ground_truth, rgb, low, high, epoch, batch_idx, save_root_path=args.save_root) :
+    for i in range(10):
+        fig, ax = plt.subplots(1, 6)
+
+        ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)))
+        ax[0].axis('off');ax[0].set_xticks([]);ax[0].set_yticks([]);ax[0].set_title('Input image')
+
+        ax[1].imshow(ground_truth[0].squeeze().cpu().detach().numpy(), cmap='gray')
+        ax[1].axis('off'); ax[1].set_xticks([]);ax[1].set_yticks([]);ax[1].set_title('Ground Truth')
+
+        pred[pred >= 0.5] = 1
+        pred[pred < 0.5] = 0
+
+        ax[2].imshow(pred[0].squeeze().cpu().detach().numpy(), cmap='gray')
+        ax[2].axis('off');ax[2].set_xticks([]);ax[2].set_yticks([]);ax[2].set_title('Pred')
+
+        ax[3].imshow(rgb[0].permute(1,2,0)[:,:,i].cpu().detach().numpy())
+        ax[3].axis('off'); ax[3].set_xticks([]); ax[3].set_yticks([]); ax[3].set_title('rgb')
+
+        ax[4].imshow(low[0].permute(1,2,0)[:,:,i].cpu().detach().numpy())
+        ax[4].axis('off'); ax[4].set_xticks([]); ax[4].set_yticks([]);ax[4].set_title('low')
+
+        ax[5].imshow(high[0].permute(1,2,0)[:,:,i].cpu().detach().numpy())
+        ax[5].axis('off'); ax[5].set_xticks([]); ax[5].set_yticks([]);ax[5].set_title('high')
+
+        plt.tight_layout()
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
+
+        if not os.path.exists(os.path.join('feature_maps','{f}'.format(f=str(feature_name)), save_root_path)) :
+            os.makedirs(os.path.join('feature_maps','{f}'.format(f=str(feature_name)), save_root_path))
+
+        plt.savefig(os.path.join('feature_maps', '{f}'.format(f=str(feature_name)), save_root_path, "feature_{b}_{num}.png".format(b=str(batch_idx), num=str(i))),
+                    bbox_inches='tight', pad_inches=0)
+
+    plt.close()
+
 def plot_inputs(image, ground_truth, pred, epoch, batch_idx, save_root_path=args.save_root) :
     fig, ax = plt.subplots(1, 3)
     ax[0].imshow(np.transpose(image[0].squeeze().cpu().detach().numpy(), (1, 2, 0)), cmap='gray')

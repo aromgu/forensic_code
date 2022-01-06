@@ -16,10 +16,10 @@ args = get_init()
 def load_dataloader(data_path, split_ratio, batch_size, img_size, num_workers) :
     # Tp_image_path = os.path.join(data_path, 'CASIA2.0_revised/Tp')
     # Tp_label_path = os.path.join(data_path, 'CASIA2.0_Groundtruth')
-    Tp_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA 2.0/Tp')
+    Tp_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Tp')
     Tp_label_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_Groundtruth')
     # Au_image_path = os.path.join(data_path, 'CASIA2.0_revised/Au')
-    Au_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA 2.0/Au')
+    Au_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Au')
 
     Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)]) #[:10]
     Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)]) #[:10]
@@ -78,7 +78,7 @@ def load_autp(data_path, split_ratio, batch_size, img_size, num_workers) :
     # Tp_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Tp')
     # Tp_label_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_Groundtruth')
     # Au_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Au')
-    Tp_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA 2.0/Tp')
+    Tp_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Tp')
     Tp_label_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_Groundtruth')
     Tp_images = sorted([Tp_image_path + '/' + x for x in os.listdir(Tp_image_path)]) #[:50]
     Tp_labels = sorted([Tp_label_path + '/' + x for x in os.listdir(Tp_label_path)]) #[:50]
@@ -89,7 +89,7 @@ def load_autp(data_path, split_ratio, batch_size, img_size, num_workers) :
         tp_name = '_'.join([tp_name1[:3], tp_name1[3:]])
         tp_list.append(tp_name)
 
-    Au_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA 2.0/Au')
+    Au_image_path = os.path.join(data_path, 'casia2groundtruth/CASIA2.0_revised/Au')
 
     au_name = []
     for i in tp_list:

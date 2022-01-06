@@ -7,7 +7,7 @@ import argparse
 import sys
 from time import time
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from utils import *
 
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
+    def __init__(self, alpha=0.25, gamma=2, logits=False, reduce=True):
         super(FocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
@@ -26,35 +26,67 @@ class FocalLoss(nn.Module):
         self.reduce = reduce
 
     def forward(self, inputs, targets):
-        ce_loss = nn.BCEWithLogitsLoss()(inputs, targets)
+        # ce_loss = nn.BCELoss()(inputs, targets)
+        print(inputs.shape, targets.shape)
+        BCE = nn.BCEWithLogitsLoss()
+        ce_loss = BCE(inputs, targets)
 
         pt = torch.exp(-ce_loss)
         F_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
 
-        if self.reduce:
-            return torch.mean(F_loss)
-        else:
-            return F_loss
+        return torch.mean(F_loss)
+
+
+# from torch.autograd import Variable
+# class FocalLoss(nn.Module):
+#     def __init__(self, gamma=0, alpha=None, size_average=True):
+#         super(FocalLoss, self).__init__()
+#         self.gamma = gamma
+#         self.alpha = alpha
+#         if isinstance(alpha,(float,int)): self.alpha = torch.Tensor([alpha,1-alpha])
+#         if isinstance(alpha,list): self.alpha = torch.Tensor(alpha)
+#         self.size_average = size_average
+#
+#     def forward(self, input, target):
+#         if input.dim()>2:
+#             input = input.view(input.size(0),input.size(1),-1)  # N,C,H,W => N,C,H*W
+#             input = input.transpose(1,2)    # N,C,H*W => N,H*W,C
+#             input = input.contiguous().view(-1,input.size(2))   # N,H*W,C => N*H*W,C
+#         target = target.view(-1,1)
+#
+#         logpt = F.log_softmax(input)
+#         logpt = logpt.gather(1,target)
+#         logpt = logpt.view(-1)
+#         pt = Variable(logpt.data.exp())
+#
+#         if self.alpha is not None:
+#             if self.alpha.type()!=input.data.type():
+#                 self.alpha = self.alpha.type_as(input.data)
+#             at = self.alpha.gather(0,target.data.view(-1))
+#             logpt = logpt * Variable(at)
+#
+#         loss = -1 * (1-pt)**self.gamma * logpt
+#         if self.size_average: return loss.mean()
+#         else: return loss.sum()
 
 class Dice_loss(nn.Module):
     def __init__(self):
         super(Dice_loss, self).__init__()
     def forward(self, pred, target):
         smooth = 1e-5
-        # start_time = time()
-        bce = F.binary_cross_entropy_with_logits(pred, target, reduction='mean')
+        # bce = F.binary_cross_entropy(pred, target, reduction='mean')
+        bce_ = nn.BCEWithLogitsLoss(reduction='mean')
+        bce = bce_(pred, target)
+
         pred = torch.sigmoid(pred)
         intersection = (pred * target).sum(dim=(2, 3))
         union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
 
         dice = 2.0 * (intersection + smooth) / (union + smooth)
 
-        dice_loss = 1.0 - dice.mean()
+        dice_loss = 1.0 - torch.mean(dice)
         loss = bce + dice_loss
 
-        # end_time = time() - start_time
-        #
-        # print("time", end_time)
 
         return loss, bce, dice_loss
 
@@ -129,30 +161,31 @@ def get_init():
     parser.add_argument('--split_ratio', type=float, default=0.2)
     parser.add_argument('--parent_dir', type=str, default='./saved_models/', help='for saving trained models')
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--save_root', default='18ASPPfilter150')
-    parser.add_argument('--train', action='store_true', default=False) # python3 main.py --train => 학습하는 거고 | python3 main.py => 테스트 하는 거임 ㅇㅋ 입력
+    parser.add_argument('--save_root', default='res101', help='res101_seg, resfeat')
+    parser.add_argument('--train', action='store_true', default=True) # python3 main.py --train => 학습하는 거고 | python3 main.py => 테스트 하는 거임 ㅇㅋ 입력
     parser.add_argument('--saved_pt', type=str, default='last_100.pth')
 
     # Train Parser Args
-    parser.add_argument('--model_name', default='res18rfam', help='model architecture name')
+    parser.add_argument('--model_name', default='res101', help='res18rfam, SE, resfeat, resfal, resrefine, resseg')
     parser.add_argument('--num_labels', type=int, default=2)
-    parser.add_argument('--optimizer', type=str, default='SGD')
+    parser.add_argument('--optimizer', type=str, default='adabound', help='Adam, SGD, adabound')
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=0.01)
-    parser.add_argument('--criterion', type=str, default='DICE')
-    parser.add_argument('--trainer', default='fuse', help='fuse, split, autp')
+    parser.add_argument('--criterion', type=str, default='DICE', help='BCE, FL, DICE')
+    parser.add_argument('--trainer', default='fuse', help='fuse, split, autp, trans, SE')
     parser.add_argument('--dataloader', default='fuse', help='fuse, autp')
 
     # parser.add_argument('--fad_option', default='n', help='FAD option')
-    parser.add_argument('--aug_option', default='n', help='MGP option')
-    # parser.add_argument('--erase_prob', type=float, default=0.)
-    # parser.add_argument('--patch_size', type=int, default=0)
-    parser.add_argument('--diagonal', type=int, default=100)
+    parser.add_argument('--aug_option', default='n', help='')
+    parser.add_argument('--erase_prob', type=float, default=0.0)
+    parser.add_argument('--patch_size', type=int, default=5)
+    parser.add_argument('--diagonal', type=int, default=100)#, default=int(np.random.randint(256, size=1)), help=' int(np.random.randint(256, size=1)) , 100')
 
     parser.add_argument('--img_size', default=256, type=int, help='image width and height size')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    # parser.add_argument('--prune', type=float, default=0.5)
 
     args = parser.parse_args()
     return args
@@ -176,10 +209,16 @@ def get_trainer(trainer):
         from Trainer_fusion import fit, test_epoch
     elif trainer == 'split':
         from Trainer_splittest import fit, test_epoch
+    elif trainer == 'trans':
+        from Trainer_transforensics import fit, test_epoch
+    elif trainer == 'SE':
+        from Trainer_SE import fit, test_epoch
+
     return fit, test_epoch
 
 def get_dataloader(args):
     if args.dataloader == 'autp':
+        from utils.load_functions import load_autp
         train_loader, test_loader = load_autp(data_path=args.data_path,
                                                 split_ratio=args.split_ratio,
                                                 batch_size=args.batch_size,
@@ -232,6 +271,10 @@ def get_optimizer(args, model) :
                               momentum=args.momentum,
                               weight_decay=args.weight_decay,
                               nesterov=True)
+    elif args.optimizer == 'adabound':
+        import adabound
+        optimizer = adabound.AdaBound(model.parameters(), lr=args.learning_rate, final_lr=0.1)
+
     else :
         print("You choose wrong optimizer : [Adam, SGD]")
         sys.exit()
