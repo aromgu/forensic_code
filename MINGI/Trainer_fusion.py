@@ -70,9 +70,19 @@ def train_epoch(args, device, model, criterion, optimizer, scheduler, train_load
         else:
             loss = criterion(prediction, label)
 
+        # for multiclass segmentation ============
+        # prediction = model(image, low, high)
+
+        # label = label.permute(0,2,3,1)
+        # prediction = prediction.permute(0,2,3,1)
+
+        # label = label.reshape(-1).type(torch.LongTensor).cuda()
+        # prediction = prediction.reshape(-1,11).cuda()
+
         # region_loss = rl(prediction, label)
         # total_loss = (loss*0.5) + (edge_loss*0.5)
-
+        # ============================================
+        
         running_loss += loss.item()
         cnt += image.size(0)
 
